@@ -4,7 +4,7 @@
 # The key and its password are kept in ~/spootify-signing. Back that folder up: every APK
 # must be signed with the same key to install over the previous one.
 set -e
-REPO="${1:-ForsakenBlank/MusicApp}"
+REPO="${1:-ForsakenBlank/Prism}"
 D="$HOME/spootify-signing"
 mkdir -p "$D"; chmod 700 "$D"; cd "$D"
 if [ -f release.p12 ]; then

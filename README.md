@@ -8,7 +8,7 @@ It runs on **Windows**, **Linux** and **Android**, with the same app and feature
 
 ## Download
 
-Get the latest version from the [Releases page](https://github.com/ForsakenBlank/MusicApp/releases/latest):
+Get the latest version from the [Releases page](https://github.com/ForsakenBlank/Prism/releases/latest):
 
 | Device  | File                       | How to install |
 |---------|----------------------------|----------------|
@@ -56,8 +56,8 @@ You need [Node.js](https://nodejs.org) (22 or newer). For the Android app you al
 (Android Studio includes both).
 
 ```bash
-git clone https://github.com/ForsakenBlank/MusicApp.git
-cd MusicApp
+git clone https://github.com/ForsakenBlank/Prism.git
+cd Prism
 npm install
 ```
 

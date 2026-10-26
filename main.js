@@ -442,7 +442,7 @@ ipcMain.handle('ytdlp:update', async () => {
 // Settings → General → App updates. Checks the latest GitHub release; installing downloads
 // this platform's build, unpacks it next to the old one, and a small script copies it over
 // the app folder once this process has quit, then starts the new version.
-const UPDATE_REPO = 'ForsakenBlank/MusicApp';
+const UPDATE_REPO = 'ForsakenBlank/Prism';
 const UPDATE_ASSETS = { linux: 'Prism-linux-x64.tar.gz', win32: 'Prism-windows-x64.zip' };
 let updateInfo = null; // the last check's result, so install uses the same release
 
