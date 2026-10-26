@@ -485,12 +485,22 @@ function collectReferencedBlobIds() {
     return ids;
 }
 
+// While a Wi-Fi sync runs (sync.js sets this), deleting waits: the other device may be
+// reading that song's audio, and media received for the sync isn't in a playlist yet.
+// Playing, browsing and editing keep working.
+let syncActive = false;
+function blockedBySync() {
+    if (!syncActive) return false;
+    showToast("Wait for the sync to finish before deleting anything");
+    return true;
+}
+
 // Songs copied between playlists share their media, so a blob is only garbage
 // once nothing references it. Called after removals and once at boot; skipped
 // unless the library loaded properly so a bad load can never wipe media.
 let gcRunning = false;
 async function gcUnreferencedBlobs() {
-    if (gcRunning || !libraryLoadedOk) return;
+    if (gcRunning || !libraryLoadedOk || syncActive) return; // media for a sync isn't in a playlist until it's applied
     gcRunning = true;
     try {
         const db = await openDb();
@@ -3664,6 +3674,7 @@ async function addSongsToPlaylist(songs, target) {
     showToast(fresh.length ? `Added ${fresh.length} to ${target}${skipped ? ` · ${skipped} already there` : ""}` : `They're all in ${target} already`);
 }
 async function removeSongsFromPlaylist(playlistName, songs) {
+    if (blockedBySync()) return;
     const pl = playlists[playlistName]; if (!pl || !songs.length) return;
     const ids = new Set(songs.map((s) => s.id)), removed = [];
     pl.songs.forEach((s, index) => { if (ids.has(s.id)) removed.push({ song: s, index }); });
@@ -4165,6 +4176,7 @@ const RESETS = {
     library: { title: "Reset library", message: "Delete all playlists, songs, listening history and ratings? Your settings and themes are kept. This can't be undone.", confirm: "Reset everything", run: resetLibrary }
 };
 async function askReset(id) {
+    if (blockedBySync()) return;
     const r = RESETS[id]; if (!r) return;
     closeSettings();
     const ok = await showPrompt({ title: r.title, message: `${r.message}\n\nTap the red button ${RESET_PRESSES} times to be sure.`, confirmText: r.confirm, danger: true, presses: RESET_PRESSES });
@@ -4758,6 +4770,7 @@ async function importSplitExport(files) {
 
 if (importLibraryInput) importLibraryInput.addEventListener("change", async () => {
     const files = [...importLibraryInput.files]; if (!files.length) return;
+    if (blockedBySync()) { importLibraryInput.value = ""; return; }
     noteActivity(`importing a library (${files.length} ${files.length === 1 ? "file" : "files"})`);
     try {
         if ((await Promise.all(files.map(readExportHeader))).some(Boolean)) { await importSplitExport(files); return; }
@@ -4867,6 +4880,7 @@ function copySongToPlaylist(song, target) {
     showToast(`Added to ${target}`);
 }
 async function removeSongFromPlaylist(playlistName, songId) {
+    if (blockedBySync()) return;
     const pl = playlists[playlistName]; if (!pl) return;
     const index = pl.songs.findIndex((s) => s.id === songId); if (index === -1) return;
     const [song] = pl.songs.splice(index, 1);
@@ -4881,6 +4895,7 @@ async function removeSongFromPlaylist(playlistName, songId) {
 }
 
 async function deletePlaylist(name) {
+    if (blockedBySync()) return;
     const pl = playlists[name]; if (!pl) return;
     const confirmed = await showPrompt({ title: "Delete Playlist", message: `Delete "${name}" and all its songs?`, confirmText: "Delete", danger: true });
     if (!confirmed || playlists[name] !== pl) return;
@@ -4982,6 +4997,7 @@ async function restoreTrashItem(id) {
     showToast(t.type === "song" ? `Restored to ${where}` : `Restored "${where}"`, { action: "Open", onAction: () => { closeBin(); closeSettings(); loadPlaylistPage(where); } });
 }
 async function deleteTrashItem(id) {
+    if (blockedBySync()) return;
     const t = trash.find((x) => x.id === id); if (!t) return;
     const what = t.type === "song" ? `"${t.song.title}"` : `the playlist "${t.name}"`;
     if (!await showPrompt({ title: "Delete for good?", message: `${what} will be gone for good.`, confirmText: "Delete", danger: true })) return;
@@ -4989,6 +5005,7 @@ async function deleteTrashItem(id) {
     await saveLibrary(); renderBin(); gcUnreferencedBlobs();
 }
 async function emptyBin() {
+    if (blockedBySync()) return;
     if (!trash.length) return;
     if (!await showPrompt({ title: "Empty Recently deleted?", message: `${trash.length} ${trash.length === 1 ? "item" : "items"} will be gone for good. This can't be undone.`, confirmText: "Empty", danger: true })) return;
     trash = []; updateBinButton();
@@ -5225,6 +5242,7 @@ async function fixDuplicateGroup(g) {
     return removed;
 }
 async function fixDuplicates(groups) {
+    if (blockedBySync()) return;
     let removed = 0;
     for (const g of groups) removed += await fixDuplicateGroup(g);
     statsIndex = null;
@@ -6403,7 +6421,7 @@ function closeTopOverlay(fromBack) {
     if (isShown(importChoice)) { if (fromBack) $("import-cancel-btn").click(); return true; }
     if (isShown($("pick-playlist-overlay"))) { $("pick-cancel-btn").click(); return true; }
     if (isShown(exportEls.overlay)) { if (!exportJob) closeExportDialog(); return true; } // Stop is a button, not Back
-    if (isShown($("sync-overlay"))) { closeSyncDialog(); return true; } // sync.js; ignored while transferring
+    if (isShown($("sync-overlay"))) { closeSyncDialog(); return true; } // sync.js; while songs move this only hides it
     const editor = $("theme-editor");
     if (editor && !editor.hidden) { closeThemeEditor(false); return true; }
     if (wrappedOverlay && !wrappedOverlay.hidden) { closeWrapped(); return true; }

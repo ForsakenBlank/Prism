@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, screen, powerSaveBlocker } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
@@ -156,7 +156,7 @@ ipcMain.handle('export:close', (event, id, discard) => {
 const http = require('http');
 const os = require('os');
 const crypto = require('crypto');
-const SYNC_PORT = 47823;
+const SYNC_PORT = Number(process.env.SPOOTIFY_SYNC_PORT) || 47823; // the env override lets a second copy host for testing
 let syncServer = null, syncCode = null, syncFails = 0, syncWin = null, syncSeq = 0;
 const syncPending = new Map();
 function lanAddresses() {
@@ -189,18 +189,23 @@ function handleSyncHttp(req, res) {
     syncWin.webContents.send('sync:request', id, body);
   });
 }
+// While hosting, the PC must not go to sleep (that would cut the phone off mid-sync).
+let syncSleepBlock = null;
 function stopSyncHost() {
   syncCode = null;
+  if (syncSleepBlock !== null) { try { powerSaveBlocker.stop(syncSleepBlock); } catch {} syncSleepBlock = null; }
   if (syncServer) { try { syncServer.close(); } catch {} syncServer = null; }
 }
 ipcMain.handle('sync:host', async (event, on) => {
   if (!on) { stopSyncHost(); return null; }
   syncWin = BrowserWindow.fromWebContents(event.sender);
   syncCode = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+  if (syncSleepBlock === null) syncSleepBlock = powerSaveBlocker.start('prevent-app-suspension');
   syncFails = 0;
   if (!syncServer) {
     const server = http.createServer(handleSyncHttp);
-    await new Promise((resolve, reject) => { server.once('error', reject); server.listen(SYNC_PORT, '0.0.0.0', resolve); });
+    try { await new Promise((resolve, reject) => { server.once('error', reject); server.listen(SYNC_PORT, '0.0.0.0', resolve); }); }
+    catch (e) { stopSyncHost(); throw e; }
     syncServer = server;
   }
   return { code: syncCode, port: SYNC_PORT, addresses: lanAddresses() };

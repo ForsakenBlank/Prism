@@ -280,6 +280,17 @@ public class BackgroundAudioPlugin extends Plugin implements PlaybackService.Lis
         }
     }
 
+    // Keeps the screen on while a Wi-Fi sync runs, so the phone doesn't sleep and cut it off.
+    @PluginMethod
+    public void keepAwake(PluginCall call) {
+        final boolean on = Boolean.TRUE.equals(call.getBoolean("on", false));
+        getActivity().runOnUiThread(() -> {
+            if (on) getActivity().getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            else getActivity().getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            call.resolve();
+        });
+    }
+
     // Wi-Fi sync with the PC app: one JSON POST, answered as text. Done here rather than with
     // fetch() because the WebView won't talk plain http to another machine on the network.
     @PluginMethod
