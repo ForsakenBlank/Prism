@@ -19,7 +19,7 @@ DEFAULT_ART_RED = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAA
 class PlaylistBuilderApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Spootify Playlist Asset Packager Pro")
+        self.root.title("Prism Playlist Asset Packager Pro")
         self.root.geometry("650x750")
         
         self.songs = []

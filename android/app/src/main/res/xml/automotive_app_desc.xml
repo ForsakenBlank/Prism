@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Tells Android Auto that Spootify is a media app (browsed through PlaybackService). -->
+<!-- Tells Android Auto that Prism is a media app (browsed through PlaybackService). -->
 <automotiveApp>
     <uses name="media" />
 </automotiveApp>

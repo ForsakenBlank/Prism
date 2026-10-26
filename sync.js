@@ -591,11 +591,11 @@ async function setHosting(on) {
         syncEls.hostInfo.hidden = !hostInfo;
         if (hostInfo) {
             const addrs = hostInfo.addresses.length ? hostInfo.addresses.map(escapeHtml).join(" or ") : "(no network found)";
-            syncEls.hostInfo.innerHTML = `<div class="sync-host-row"><span>Address</span><strong>${addrs}</strong></div><div class="sync-host-row"><span>Code</span><strong class="sync-code">${escapeHtml(hostInfo.code)}</strong></div><p id="sync-host-status" class="sync-host-status">Waiting for a device… you can close this and keep using Spootify while it syncs.</p>`;
+            syncEls.hostInfo.innerHTML = `<div class="sync-host-row"><span>Address</span><strong>${addrs}</strong></div><div class="sync-host-row"><span>Code</span><strong class="sync-code">${escapeHtml(hostInfo.code)}</strong></div><p id="sync-host-status" class="sync-host-status">Waiting for a device… you can close this and keep using Prism while it syncs.</p>`;
         }
     } catch (e) {
         syncEls.hostToggle.checked = false; syncEls.hostInfo.hidden = true;
-        setSyncStatus(`Couldn't start: ${errorText(e)}${/EADDRINUSE/.test(errorText(e)) ? " (another copy of Spootify may be hosting)" : ""}`, "error");
+        setSyncStatus(`Couldn't start: ${errorText(e)}${/EADDRINUSE/.test(errorText(e)) ? " (another copy of Prism may be hosting)" : ""}`, "error");
     }
 }
 

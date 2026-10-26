@@ -1,4 +1,4 @@
-# Builds Spootify for Linux, Windows and Android. Pushing a tag like v1.2.3 publishes all
+# Builds Prism for Linux, Windows and Android. Pushing a tag like v1.2.3 publishes all
 # three as a GitHub release (the desktop apps' "Check for updates" reads that release).
 # Running it by hand from the Actions tab just builds them, as downloadable artifacts.
 name: Release
@@ -18,12 +18,12 @@ jobs:
         include:
           - os: ubuntu-latest
             script: build-linux
-            folder: Spootify-linux-x64
-            asset: Spootify-linux-x64.tar.gz
+            folder: Prism-linux-x64
+            asset: Prism-linux-x64.tar.gz
           - os: windows-latest
             script: build-exe
-            folder: Spootify-win32-x64
-            asset: Spootify-windows-x64.zip
+            folder: Prism-win32-x64
+            asset: Prism-windows-x64.zip
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -90,16 +90,16 @@ jobs:
           chmod +x gradlew
           if [ -n "$SPOOTIFY_KEYSTORE" ]; then
             ./gradlew assembleRelease
-            cp app/build/outputs/apk/release/app-release.apk ../Spootify-android.apk
+            cp app/build/outputs/apk/release/app-release.apk ../Prism-android.apk
           else
             echo "::warning::No signing key in the repo secrets: building a debug APK, which won't install over an earlier one."
             ./gradlew assembleDebug
-            cp app/build/outputs/apk/debug/app-debug.apk ../Spootify-android.apk
+            cp app/build/outputs/apk/debug/app-debug.apk ../Prism-android.apk
           fi
       - uses: actions/upload-artifact@v4
         with:
-          name: Spootify-android.apk
-          path: Spootify-android.apk
+          name: Prism-android.apk
+          path: Prism-android.apk
 
   release:
     needs: [desktop, android]

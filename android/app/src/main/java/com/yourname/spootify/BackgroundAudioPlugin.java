@@ -44,7 +44,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *  - setLibrary({ json })                                                   playlists / liked / recent for Android Auto
  *  - setBackground({ color })                                               "#rrggbb" behind the page (the theme's base)
  *  - saveFileStart({ name, mime }) -> { token }, saveFileChunk({ token, data | text }),
- *    saveFileEnd({ token, cancel }) -> { path }                             write a file into Downloads/Spootify
+ *    saveFileEnd({ token, cancel }) -> { path }                             write a file into Downloads/Prism
  *    (the WebView ignores <a download>, so exports and images are streamed here in base64 chunks)
  *  - httpPost({ url, body, timeout }) -> { status, text }                  Wi-Fi sync requests to the PC app
  *
@@ -85,7 +85,7 @@ public class BackgroundAudioPlugin extends Plugin implements PlaybackService.Lis
 
     @PluginMethod
     public void update(PluginCall call) {
-        String title = call.getString("title", "Spootify");
+        String title = call.getString("title", "Prism");
         String artist = call.getString("artist", "");
         boolean playing = Boolean.TRUE.equals(call.getBoolean("isPlaying", false));
         long positionMs = secondsToMs(call.getDouble("position", 0.0));
@@ -211,14 +211,14 @@ public class BackgroundAudioPlugin extends Plugin implements PlaybackService.Lis
                 ContentValues v = new ContentValues();
                 v.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
                 v.put(MediaStore.MediaColumns.MIME_TYPE, mime);
-                v.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Spootify");
+                v.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Prism");
                 v.put(MediaStore.MediaColumns.IS_PENDING, 1);
                 ContentResolver resolver = getContext().getContentResolver();
                 t.uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
                 if (t.uri == null) throw new IOException("Could not create the file");
                 t.out = resolver.openOutputStream(t.uri);
                 if (t.out == null) throw new IOException("Could not open the file");
-                t.display = "Downloads/Spootify/" + name;
+                t.display = "Downloads/Prism/" + name;
             } else {
                 // Before Android 10 public Downloads needs a storage permission; the app's own
                 // folder doesn't (Android/data/<app>/files/Download).

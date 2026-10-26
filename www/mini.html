@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Spootify mini player</title>
+<title>Prism mini player</title>
 <!-- Desktop only: the always-on-top mini player window opened from the player bar.
      It has no audio of its own; app.v2.js sends it state and it sends back commands
      through window.electronAPI.mini (see main.js MINI PLAYER). -->
@@ -41,9 +41,9 @@
 <body class="empty">
 <div class="tint" id="tint"></div>
 <div class="row">
-    <img class="art" id="art" alt="" title="Open Spootify">
+    <img class="art" id="art" alt="" title="Open Prism">
     <div class="info">
-        <div class="text"><strong id="title">Nothing playing</strong><span id="artist">Play something in Spootify</span></div>
+        <div class="text"><strong id="title">Nothing playing</strong><span id="artist">Play something in Prism</span></div>
         <div class="controls">
             <button class="ctl" data-cmd="prev" aria-label="Previous" title="Previous"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6V6Zm3.5 6 8.5 6V6l-8.5 6Z"/></svg></button>
             <button class="play" id="play" data-cmd="play-pause" aria-label="Play"></button>
@@ -53,7 +53,7 @@
         </div>
     </div>
     <div class="side">
-        <button data-cmd="show-main" aria-label="Open Spootify" title="Open Spootify"><svg viewBox="0 0 24 24"><path d="M14 3h7v7h-2V6.4l-8.3 8.3-1.4-1.4L17.6 5H14V3ZM5 5h6v2H5v12h12v-6h2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button>
+        <button data-cmd="show-main" aria-label="Open Prism" title="Open Prism"><svg viewBox="0 0 24 24"><path d="M14 3h7v7h-2V6.4l-8.3 8.3-1.4-1.4L17.6 5H14V3ZM5 5h6v2H5v12h12v-6h2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button>
         <button data-cmd="close" aria-label="Close mini player" title="Close"><svg viewBox="0 0 24 24"><path d="M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7l-1.4-1.4L9.2 12 2.9 5.7l1.4-1.4 6.3 6.3 6.3-6.3 1.4 1.4Z"/></svg></button>
     </div>
 </div>
@@ -79,8 +79,8 @@
         const prev = st; st = s; base = s.position || 0; baseAt = performance.now();
         document.body.classList.toggle("empty", !s.title);
         $("title").textContent = s.title || "Nothing playing";
-        $("artist").textContent = s.title ? (s.artist || "Unknown Artist") : "Play something in Spootify";
-        document.title = s.title ? `${s.title} · Spootify` : "Spootify mini player";
+        $("artist").textContent = s.title ? (s.artist || "Unknown Artist") : "Play something in Prism";
+        document.title = s.title ? `${s.title} · Prism` : "Prism mini player";
         if (s.art && (!prev || prev.art !== s.art)) $("art").src = s.art;
         if (!s.art) $("art").removeAttribute("src");
         $("play").innerHTML = s.playing ? PAUSE : PLAY; $("play").setAttribute("aria-label", s.playing ? "Pause" : "Play");

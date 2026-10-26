@@ -4,6 +4,11 @@ const fs = require('fs');
 const https = require('https');
 const { spawn, execFileSync } = require('child_process');
 
+// The library, settings and stats live in the "spootify" data folder (the app's name before
+// it became Prism), set here so a name change can never point it at an empty one.
+// SPOOTIFY_USER_DATA runs a separate copy with its own data (testing).
+app.setPath('userData', process.env.SPOOTIFY_USER_DATA || path.join(app.getPath('appData'), 'spootify'));
+
 // Window size/position (and the theme's background colour, so a light theme doesn't
 // flash dark on startup) are remembered in <userData>/window-state.json.
 function stateFile() { return path.join(app.getPath('userData'), 'window-state.json'); }
@@ -80,7 +85,7 @@ function openMini() {
   const bounds = saved && isOnScreen({ ...saved, ...size }) ? { x: saved.x, y: saved.y, ...size } : size;
   miniWin = new BrowserWindow({
     ...bounds, frame: false, resizable: false, maximizable: false, fullscreenable: false, alwaysOnTop: true,
-    title: 'Spootify mini player', icon: path.join(__dirname, 'www', 'icon.png'),
+    title: 'Prism mini player', icon: path.join(__dirname, 'www', 'icon.png'),
     backgroundColor: /^#[0-9a-f]{6}$/i.test(readWindowState().background || '') ? readWindowState().background : '#121212',
     webPreferences: { nodeIntegration: false, contextIsolation: true, preload: path.join(__dirname, 'preload.js') }
   });
@@ -284,7 +289,7 @@ function ytdlpStatus() {
 function fetchToFile(url, dest, onProgress, redirects = 0) {
   return new Promise((resolve, reject) => {
     if (redirects > 10) return reject(new Error('Too many redirects'));
-    https.get(url, { headers: { 'User-Agent': 'Spootify' } }, (res) => {
+    https.get(url, { headers: { 'User-Agent': 'Prism' } }, (res) => {
       if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
         res.resume();
         return resolve(fetchToFile(new URL(res.headers.location, url).toString(), dest, onProgress, redirects + 1));
@@ -438,13 +443,13 @@ ipcMain.handle('ytdlp:update', async () => {
 // this platform's build, unpacks it next to the old one, and a small script copies it over
 // the app folder once this process has quit, then starts the new version.
 const UPDATE_REPO = 'ForsakenBlank/MusicApp';
-const UPDATE_ASSETS = { linux: 'Spootify-linux-x64.tar.gz', win32: 'Spootify-windows-x64.zip' };
+const UPDATE_ASSETS = { linux: 'Prism-linux-x64.tar.gz', win32: 'Prism-windows-x64.zip' };
 let updateInfo = null; // the last check's result, so install uses the same release
 
 function getJson(url, redirects = 0) {
   return new Promise((resolve, reject) => {
     if (redirects > 10) return reject(new Error('Too many redirects'));
-    https.get(url, { headers: { 'User-Agent': 'Spootify', Accept: 'application/vnd.github+json' } }, (res) => {
+    https.get(url, { headers: { 'User-Agent': 'Prism', Accept: 'application/vnd.github+json' } }, (res) => {
       if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
         res.resume();
         return resolve(getJson(new URL(res.headers.location, url).toString(), redirects + 1));
@@ -466,12 +471,12 @@ function isNewerVersion(a, b) {
   for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
   return false;
 }
-// The folder holding the Spootify executable (dist/Spootify-linux-x64 or the unzipped Windows folder).
+// The folder holding the Prism executable (dist/Prism-linux-x64 or the unzipped Windows folder).
 function appFolder() { return path.dirname(process.execPath); }
 function cantInstallReason() {
   if (!UPDATE_ASSETS[process.platform]) return 'Updates from Settings work on Windows and Linux.';
   if (!app.isPackaged) return 'Running from source: pull the latest code and rebuild instead.';
-  try { fs.accessSync(appFolder(), fs.constants.W_OK); } catch { return "Spootify can't write to its own folder, so download the update from the release page."; }
+  try { fs.accessSync(appFolder(), fs.constants.W_OK); } catch { return "Prism can't write to its own folder, so download the update from the release page."; }
   return null;
 }
 
@@ -503,7 +508,7 @@ ipcMain.handle('update:install', async (event) => {
   fs.mkdirSync(unpacked);
   if (process.platform === 'win32') extractZip(archive, unpacked);
   else execFileSync('tar', ['-xzf', archive, '-C', unpacked], { stdio: 'ignore' });
-  // The archive holds one folder (Spootify-<platform>-x64); copy what's inside it.
+  // The archive holds one folder (Prism-<platform>-x64); copy what's inside it.
   const entries = fs.readdirSync(unpacked);
   const src = entries.length === 1 && fs.statSync(path.join(unpacked, entries[0])).isDirectory() ? path.join(unpacked, entries[0]) : unpacked;
   const dest = appFolder(), exe = process.execPath;
@@ -555,7 +560,7 @@ function trayCommand(type) { if (mainWin && !mainWin.isDestroyed()) mainWin.webC
 function buildTrayMenu() {
   if (!tray) return;
   const t = trayState, song = t.title ? `${t.title}${t.artist ? ' — ' + t.artist : ''}` : 'Nothing playing';
-  tray.setToolTip(t.title ? `Spootify · ${song}` : 'Spootify');
+  tray.setToolTip(t.title ? `Prism · ${song}` : 'Prism');
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: song.length > 60 ? song.slice(0, 57) + '…' : song, enabled: false },
     { label: t.playing ? 'Pause' : 'Play', enabled: !!t.title, click: () => trayCommand('play-pause') },
@@ -563,9 +568,9 @@ function buildTrayMenu() {
     { label: 'Previous', enabled: !!t.title, click: () => trayCommand('prev') },
     { type: 'separator' },
     { label: 'Mini player', click: () => openMini() },
-    { label: 'Show Spootify', click: showMain },
+    { label: 'Show Prism', click: showMain },
     { type: 'separator' },
-    { label: 'Quit Spootify', click: () => { quitting = true; app.quit(); } }
+    { label: 'Quit Prism', click: () => { quitting = true; app.quit(); } }
   ]));
 }
 function createTray() {

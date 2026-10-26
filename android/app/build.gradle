@@ -8,8 +8,8 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Release builds (GitHub Actions) set these from the tag, e.g. v1.2.3 → 1.2.3 / 10203.
-        versionCode (System.getenv("SPOOTIFY_VERSION_CODE") ?: "1").toInteger()
-        versionName System.getenv("SPOOTIFY_VERSION_NAME") ?: "1.0"
+        versionCode = Integer.parseInt(System.getenv("SPOOTIFY_VERSION_CODE") ?: "1")
+        versionName = System.getenv("SPOOTIFY_VERSION_NAME") ?: "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         // youtubedl-android ships a Python runtime per ABI; keep the set small.
         ndk {

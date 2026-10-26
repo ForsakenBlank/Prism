@@ -1,4 +1,4 @@
-console.log("Spootify V2: Script Load Start");
+console.log("Prism V2: Script Load Start");
 
 // ── DATA STORES ──
 let playlists = {};
@@ -1262,7 +1262,7 @@ async function playFromCar(id) {
     const found = findSongById(songId); // "recent:", a search hit, or a playlist that was renamed since
     if (found) await playSong(found.song, found.playlistName, false, { restart: true });
 }
-// "Hey Google, play … on Spootify": a playlist by name, else an artist, else the best matching song.
+// "Hey Google, play … on Prism": a playlist by name, else an artist, else the best matching song.
 async function playFromVoice(query) {
     const q = normalizeText(query).trim();
     if (!q) { if (currentTrack) safePlay(); else startSomething(); return; }
@@ -2151,7 +2151,7 @@ function wrappedCards(p, d) {
     if (d.added) tiles.push([d.added.toLocaleString(), `new ${d.added === 1 ? "song" : "songs"} added`]);
     if (d.liked) tiles.push([d.liked.toLocaleString(), `${d.liked === 1 ? "song" : "songs"} liked`]);
     cards.push({ cls: "w-habits", html: `<div class="w-kicker">How you listened</div><div class="w-tiles">${tiles.map(([n, l], i) => `<div class="w-tile" style="--i:${i}"><strong>${escapeHtml(n)}</strong><span>${escapeHtml(l)}</span></div>`).join("")}</div>` });
-    cards.push({ cls: "w-summary", final: true, html: `<div class="w-kicker">${escapeHtml(t)} on Spootify</div>
+    cards.push({ cls: "w-summary", final: true, html: `<div class="w-kicker">${escapeHtml(t)} on Prism</div>
         <div class="w-sum-head"><img src="${escapeHtml(top.art)}" alt=""><div><strong>${mins.toLocaleString()}</strong><span>minutes listened</span></div></div>
         <div class="w-sum-cols"><div><h3>Top songs</h3><ol>${d.songs.slice(0, 5).map((s) => `<li>${escapeHtml(s.title)}</li>`).join("")}</ol></div>
         <div><h3>Top artists</h3><ol>${d.artists.slice(0, 5).map((a) => `<li>${escapeHtml(a.name)}</li>`).join("")}</ol></div></div>
@@ -2222,7 +2222,7 @@ async function saveWrappedImage() {
     const font = (w, s) => `${w} ${s}px "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
     const fit = (text, max) => { let t = String(text); if (g.measureText(t).width <= max) return t; while (t.length > 1 && g.measureText(t + "…").width > max) t = t.slice(0, -1); return t + "…"; };
     g.fillStyle = "#fff"; g.textBaseline = "alphabetic";
-    g.font = font(800, 44); g.fillText(fit(`My ${p.title} on Spootify`, 640), 80, 140);
+    g.font = font(800, 44); g.fillText(fit(`My ${p.title} on Prism`, 640), 80, 140);
     const topArt = await loadImage(d.songs[0]?.art);
     if (topArt) {
         g.save(); g.shadowColor = "rgba(0,0,0,0.5)"; g.shadowBlur = 40;
@@ -2244,7 +2244,7 @@ async function saveWrappedImage() {
     col("Top artists", d.artists.map((a) => ({ a: a.name, b: `${Math.round(a.seconds / 60).toLocaleString()} min` })), 580);
     g.font = font(700, 30); g.globalAlpha = 0.75;
     g.fillText(`${d.plays.toLocaleString()} plays · ${d.songs.length.toLocaleString()} songs${d.streak > 1 ? ` · ${d.streak}-day streak` : ""}`, 80, H - 90);
-    g.textAlign = "right"; g.fillText("Spootify", W - 80, H - 90); g.globalAlpha = 1;
+    g.textAlign = "right"; g.fillText("Prism", W - 80, H - 90); g.globalAlpha = 1;
     const blob = await new Promise((r) => c.toBlob(r, "image/png"));
     if (!blob) { showToast("Couldn't make the image"); return; }
     await saveBlobAsFile(blob, `spootify-wrapped-${p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`, "Wrapped image");
@@ -2301,7 +2301,7 @@ function updatePlayPauseIcon() {
     renderQuiet();
 }
 function updateDocumentTitle() {
-    const t = currentTrack && isAudiblyPlaying() ? `${currentTrack.title || "Unknown"} · ${currentTrack.artist || "Unknown Artist"}` : "Spootify";
+    const t = currentTrack && isAudiblyPlaying() ? `${currentTrack.title || "Unknown"} · ${currentTrack.artist || "Unknown Artist"}` : "Prism";
     if (document.title !== t) document.title = t;
 }
 onPlayer("play", updatePlayPauseIcon);
@@ -4107,10 +4107,10 @@ function saveUpdatePrefs() { try { localStorage.setItem(UPDATE_KEY, JSON.stringi
 let updateBusy = false;
 const updateError = (e) => errorText(e).replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
 function showUpdateResult(info) {
-    setText(updateEls.version, `Spootify ${info.current}`);
+    setText(updateEls.version, `Prism ${info.current}`);
     updateEls.install.hidden = !info.available || !!info.cantInstall;
     if (!info.available) setText(updateEls.status, `You're up to date (latest is ${info.latest || info.current}).`);
-    else setText(updateEls.status, `Version ${info.latest} is available.${info.cantInstall ? " " + info.cantInstall : " Spootify restarts to install it."}`);
+    else setText(updateEls.status, `Version ${info.latest} is available.${info.cantInstall ? " " + info.cantInstall : " Prism restarts to install it."}`);
 }
 async function checkForUpdates(quiet = false) {
     if (!updater || updateBusy) return null;
@@ -4120,7 +4120,7 @@ async function checkForUpdates(quiet = false) {
         const info = await updater.check();
         updatePrefs.lastCheck = Date.now(); saveUpdatePrefs();
         showUpdateResult(info);
-        if (quiet && info.available) showToast(`Spootify ${info.latest} is available · Settings → General`, { duration: 6000 });
+        if (quiet && info.available) showToast(`Prism ${info.latest} is available · Settings → General`, { duration: 6000 });
         return info;
     } catch (e) {
         if (!quiet) setText(updateEls.status, `Couldn't check: ${updateError(e)}`);
@@ -4129,7 +4129,7 @@ async function checkForUpdates(quiet = false) {
 }
 async function installUpdate() {
     if (!updater || updateBusy) return;
-    if (!await showPrompt({ title: "Update Spootify?", message: "It downloads the new version, closes, and opens again updated. Your library, stats and settings stay as they are.", confirmText: "Update now" })) return;
+    if (!await showPrompt({ title: "Update Prism?", message: "It downloads the new version, closes, and opens again updated. Your library, stats and settings stay as they are.", confirmText: "Update now" })) return;
     updateBusy = true;
     updateEls.check.disabled = updateEls.install.disabled = true;
     noteActivity("updating the app");
@@ -4160,7 +4160,7 @@ const RESETS = {
     ratings: { title: "Clear ratings", message: "Remove the star rating from every song?", confirm: "Clear ratings", run: () => {
         ratings = {}; saveRatings(); sortedCache.clear(); renderSongs(); scheduleShelves(); updateRatingButtons(); showToast("Ratings cleared");
     } },
-    appearance: { title: "Reset appearance", message: "Go back to the Spootify theme and the default display and Home settings? Your own themes are kept.", confirm: "Reset appearance", run: () => {
+    appearance: { title: "Reset appearance", message: "Go back to the Prism theme and the default display and Home settings? Your own themes are kept.", confirm: "Reset appearance", run: () => {
         appearance = { ...(Themes ? Themes.DEFAULT_SETTINGS : appearance) }; applyAppearance(); renderAppearanceUi(); showToast("Appearance reset");
     } },
     themes: { title: "Delete all my themes", message: "Delete every theme you made or pasted in, and their pictures? The built-in themes stay.", confirm: "Delete themes", run: () => {
@@ -4196,7 +4196,7 @@ async function blobToDataUrl(blob) {
 
 // Desktop and browser: an ordinary download. The Android WebView ignores those, so
 // there the bytes are streamed (base64, a few MB at a time) to BackgroundAudio, which
-// writes them into Downloads/Spootify.
+// writes them into Downloads/Prism.
 async function saveBlobAsFile(blob, name, label = "File") {
     if (!nativeAudio.available) {
         const url = URL.createObjectURL(blob), link = document.createElement("a");
@@ -4368,7 +4368,7 @@ async function restoreSettings(s) {
     Themes.saveCustom([...byId.values()]);
 }
 
-// Where the files go: Android → Downloads/Spootify (native, text chunks), desktop app →
+// Where the files go: Android → Downloads/Prism (native, text chunks), desktop app →
 // a folder you pick, a plain browser → ordinary downloads.
 async function openExportSink() {
     const el = window.electronAPI && window.electronAPI.exportFiles;
@@ -4384,7 +4384,7 @@ async function openExportSink() {
     }
     if (nativeAudio.available) {
         return {
-            where: "Downloads/Spootify",
+            where: "Downloads/Prism",
             open: async (name) => (await nativeAudio.raw("saveFileStart", { name, mime: "application/json" })).token,
             write: (h, text) => nativeAudio.raw("saveFileChunk", { token: h, text }),
             close: async (h) => (await nativeAudio.raw("saveFileEnd", { token: h }))?.path || "Downloads",
@@ -4438,9 +4438,9 @@ const exportOpts = () => Object.fromEntries(EXPORT_PICKS.map((k) => [k, !!export
 const exportContents = (o) => ["library", "stats", "settings", "themes"].filter((k) => (k === "library" ? o.songs : o[k]));
 function dataFileName(o, stamp) {
     const c = exportContents(o);
-    if (c.length === 1 && c[0] === "stats") return `spootify-listening-${stamp}.json`;
-    if (!o.songs && !o.stats) return `spootify-settings-${stamp}.json`;
-    return `spootify-data-${stamp}.json`;
+    if (c.length === 1 && c[0] === "stats") return `prism-listening-${stamp}.json`;
+    if (!o.songs && !o.stats) return `prism-settings-${stamp}.json`;
+    return `prism-data-${stamp}.json`;
 }
 let exportPlanCache = null;
 async function refreshExportSummary() {
@@ -4450,7 +4450,7 @@ async function refreshExportSummary() {
     if (!exportContents(opts).length) { setExportStatus("Pick at least one thing to export.", "error"); exportEls.go.disabled = true; return; }
     const plan = await planExport(opts);
     exportPlanCache = { opts, plan };
-    const sink = window.electronAPI?.exportFiles ? "a folder you choose" : nativeAudio.available ? "Downloads/Spootify" : "your downloads";
+    const sink = window.electronAPI?.exportFiles ? "a folder you choose" : nativeAudio.available ? "Downloads/Prism" : "your downloads";
     if (!opts.songs) {
         const n = plan.stats ? plan.stats.listenTimes.length : 0;
         setExportStatus(`1 small file${opts.stats ? ` · listening time for ${n} ${n === 1 ? "song" : "songs"}` : ""}, saved to ${sink}.`);
@@ -4502,7 +4502,7 @@ async function runExport() {
         written.push(await sink.close(handle)); handle = null;
         for (let p = 0; p < N; p++) {
             if (job.cancelled) break;
-            const name = N === 1 ? `spootify-media-${stamp}.json` : `spootify-media-${stamp}-part${String(p + 1).padStart(2, "0")}-of${String(N).padStart(2, "0")}.json`;
+            const name = N === 1 ? `prism-media-${stamp}.json` : `prism-media-${stamp}-part${String(p + 1).padStart(2, "0")}-of${String(N).padStart(2, "0")}.json`;
             handle = await sink.open(name);
             const w = exportWriter(sink, handle);
             const header = JSON.stringify({ spootify: EXPORT_FORMAT, version: 5, kind: "media", exportId, part: p + 1, parts: N, exportedAt });
@@ -4705,7 +4705,7 @@ async function importSplitExport(files) {
     for (const f of files) { const h = await readExportHeader(f); if (h) headers.push({ file: f, h }); }
     // Version 5: a data file (kind "data") plus media parts 1…N. Version 4: the library sits in part 1.
     const first = headers.find((x) => x.h.kind === "data") || headers.find((x) => !x.h.kind && x.h.part === 1);
-    if (!first) { await showMessage("Data file is missing", "Pick the spootify-data file together with the media files from the same export."); return; }
+    if (!first) { await showMessage("Data file is missing", "Pick the data file (prism-data-…, or spootify-data-… from older exports) together with the media files from the same export."); return; }
     const set = headers.filter((x) => x.h.exportId === first.h.exportId)
         .sort((a, b) => (a.h.kind === "data" ? -1 : b.h.kind === "data" ? 1 : a.h.part - b.h.part));
     const media = set.filter((x) => x.h.kind !== "data");
@@ -7472,7 +7472,7 @@ async function editSongCover(song) {
 const ARTIST_SOURCE_PREFIX = "artist:";
 function isArtistSource(name) { return typeof name === "string" && name.startsWith(ARTIST_SOURCE_PREFIX); }
 function artistFromSource(name) { return isArtistSource(name) ? name.slice(ARTIST_SOURCE_PREFIX.length) : name; }
-function sourceLabel(source) { return isArtistSource(source) ? artistFromSource(source) : isLikedSource(source) ? "Liked Songs" : (source || "Spootify"); }
+function sourceLabel(source) { return isArtistSource(source) ? artistFromSource(source) : isLikedSource(source) ? "Liked Songs" : (source || "Prism"); }
 function artistKey(name) { return String(name || "Unknown Artist").trim().toLowerCase(); }
 function artistLinkHtml(artist) { const a = artist || "Unknown Artist"; return `<button type="button" class="artist-link" data-artist="${escapeHtml(a)}">${escapeHtml(a)}</button>`; }
 
@@ -7743,13 +7743,13 @@ onPlayer("playing", () => { setTimeout(() => { if (levellerEnabled) { const n = 
 // Themes are expanded into CSS variables by themes.js (applied before first paint).
 // This is the Appearance tab (a theme grid that shows 11 and folds the rest behind
 // "+N more"), the theme editor (it docks beside the app so every change previews
-// live), Spootify's own colour picker, accent overrides, album-art tints and the
+// live), Prism's own colour picker, accent overrides, album-art tints and the
 // visualizer.
 // ══════════════════════════════════════════════
 const ACCENT_SWATCHES = ["#1DB954", "#2e77d0", "#8b5cf6", "#e91e63", "#f43f5e", "#f97316", "#f5c542", "#14b8a6", "#06b6d4"];
 const THEME_GRID_LIMIT = 11;
 let themeGridExpanded = false;
-function currentTheme() { return Themes ? Themes.findTheme(appearance.theme) : { id: "spootify", name: "Spootify", mode: "dark", style: "classic", bg: "#0a0a0a" }; }
+function currentTheme() { return Themes ? Themes.findTheme(appearance.theme) : { id: "spootify", name: "Prism", mode: "dark", style: "classic", bg: "#0a0a0a" }; }
 function applyAppearance(save = true) {
     const theme = currentTheme(), root = document.documentElement;
     if (Themes) Themes.apply(theme, appearance);
@@ -7884,7 +7884,7 @@ if ($("theme-paste-btn")) $("theme-paste-btn").addEventListener("click", async (
 });
 
 // ── COLOUR PICKER ──
-// Spootify's own picker for every <input type="color">. It always opens on the colour
+// Prism's own picker for every <input type="color">. It always opens on the colour
 // the input already has (Android's system dialog doesn't), and has a hex box, this
 // theme's colours, recent picks and an eyedropper where the browser has one. It
 // writes back through the input's value + input/change events, so the code listening
@@ -9136,7 +9136,7 @@ if (trimEls.overlay) {
 // ── BOOT ──
 async function boot() {
     try {
-        console.log("Booting Spootify...");
+        console.log("Booting Prism...");
         applyIcons(); updateGreeting(); setupMediaSession();
         applyAppearance(false);
         try { setSidebarCollapsed(localStorage.getItem("spootify-sidebar-collapsed") === "1"); } catch {}
@@ -9232,13 +9232,13 @@ async function boot() {
                 const songs = Object.values(playlists).reduce((n, pl) => n + (pl.songs || []).length, 0);
                 logProblem(`${r.reason === "memory" ? "Ran out of memory" : "The page crashed (" + r.reason + ")"} and restarted${lastJob ? ` while ${lastJob}` : ""}. Library: ${songs} songs.`);
                 showToast(r.reason === "memory"
-                    ? "Spootify ran out of memory and had to restart"
-                    : "Spootify's page crashed and was restarted", { duration: 6000 });
-            } else if (lastJob) logProblem(`Spootify closed while ${lastJob}.`);
+                    ? "Prism ran out of memory and had to restart"
+                    : "Prism's page crashed and was restarted", { duration: 6000 });
+            } else if (lastJob) logProblem(`Prism closed while ${lastJob}.`);
         }).catch(() => {});
         renderProblems();
 
-        console.log("Spootify Boot Complete.");
+        console.log("Prism Boot Complete.");
     } catch (err) {
         console.error("BOOT CRASH:", err);
     }

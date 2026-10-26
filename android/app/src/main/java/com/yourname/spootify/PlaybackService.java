@@ -129,7 +129,7 @@ public class PlaybackService extends MediaBrowserServiceCompat {
     private final Runnable releaseWakeLockRunnable = this::releaseWakeLock;
     private final Runnable wakeAppTimeout = this::showOpenAppError;
 
-    private String title = "Spootify";
+    private String title = "Prism";
     private String artist = "";
     private String album = "";       // the playlist it's playing from, shown under the artist
     private boolean liked = false;   // lock-screen heart
@@ -185,7 +185,7 @@ public class PlaybackService extends MediaBrowserServiceCompat {
         setSessionToken(session.getSessionToken());
 
         PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
-        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Spootify:playback");
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Prism:playback");
         wakeLock.setReferenceCounted(false);
 
         if (library == null) library = readLibraryFile(this);
@@ -235,7 +235,7 @@ public class PlaybackService extends MediaBrowserServiceCompat {
             mainHandler.post(() -> update(newTitle, newArtist, isPlaying, posMs, durMs, playbackRate, artBase64, newAlbum, isLiked, isShuffle));
             return;
         }
-        title = newTitle != null && !newTitle.isEmpty() ? newTitle : "Spootify";
+        title = newTitle != null && !newTitle.isEmpty() ? newTitle : "Prism";
         artist = newArtist != null ? newArtist : "";
         album = newAlbum != null ? newAlbum : "";
         liked = isLiked;
@@ -564,7 +564,7 @@ public class PlaybackService extends MediaBrowserServiceCompat {
         }
         session.setPlaybackState(new PlaybackStateCompat.Builder()
                 .setActions(PlaybackStateCompat.ACTION_PLAY | PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID | PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH)
-                .setErrorMessage(PlaybackStateCompat.ERROR_CODE_APP_ERROR, "Open Spootify on your phone, then try again")
+                .setErrorMessage(PlaybackStateCompat.ERROR_CODE_APP_ERROR, "Open Prism on your phone, then try again")
                 .setState(PlaybackStateCompat.STATE_ERROR, 0, 0f).build());
     }
 
@@ -615,10 +615,10 @@ public class PlaybackService extends MediaBrowserServiceCompat {
         MediaMetadataCompat.Builder b = new MediaMetadataCompat.Builder()
                 .putString(MediaMetadataCompat.METADATA_KEY_TITLE, title)
                 .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, artist)
-                .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, album.isEmpty() ? "Spootify" : album)
+                .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, album.isEmpty() ? "Prism" : album)
                 .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, title)
                 .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, artist)
-                .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION, album.isEmpty() ? "Spootify" : album);
+                .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION, album.isEmpty() ? "Prism" : album);
         if (durationMs > 0) b.putLong(MediaMetadataCompat.METADATA_KEY_DURATION, durationMs);
         if (art != null) {
             b.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, art);

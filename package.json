@@ -1,12 +1,12 @@
 {
   "name": "spootify",
   "version": "1.0.0",
-  "description": "Spootify Music Player",
+  "description": "Prism Music Player",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build-exe": "npm run copy-web && electron-packager . Spootify --platform=win32 --arch=x64 --out=dist --overwrite --icon=build/icon.ico --ignore=\"^/android\" --ignore=\"^/scripts\" --ignore=\"^/\\.github\" --ignore=\"^/\\.idea\" --ignore=\"^/\\.vscode\" --ignore=\"^/\\.claude\"",
-    "build-linux": "npm run copy-web && electron-packager . Spootify --platform=linux --arch=x64 --out=dist --overwrite --icon=icon.png --ignore=\"^/android\" --ignore=\"^/scripts\" --ignore=\"^/\\.github\" --ignore=\"^/\\.idea\" --ignore=\"^/\\.vscode\" --ignore=\"^/\\.claude\"",
+    "build-exe": "npm run copy-web && electron-packager . Prism --platform=win32 --arch=x64 --out=dist --overwrite --icon=build/icon.ico --ignore=\"^/android\" --ignore=\"^/scripts\" --ignore=\"^/\\.github\" --ignore=\"^/\\.idea\" --ignore=\"^/\\.vscode\" --ignore=\"^/\\.claude\"",
+    "build-linux": "npm run copy-web && electron-packager . Prism --platform=linux --arch=x64 --out=dist --overwrite --icon=icon.png --ignore=\"^/android\" --ignore=\"^/scripts\" --ignore=\"^/\\.github\" --ignore=\"^/\\.idea\" --ignore=\"^/\\.vscode\" --ignore=\"^/\\.claude\"",
     "copy-web": "node scripts/copy-web.js",
     "sync-android": "npm run copy-web && npx cap sync android",
     "open-android": "npx cap open android",

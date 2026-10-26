@@ -26,7 +26,7 @@
     //        linear / glow / aurora = the colours paint the whole window; plain = just the base colour.
     // glass: panels are see-through so the background runs behind them.
     const BASE_THEMES = [
-        { id: "spootify", name: "Spootify", mode: "dark", style: "classic", bg: "#0a0a0a", colors: ["#1a1a2e"],
+        { id: "spootify", name: "Prism", mode: "dark", style: "classic", bg: "#0a0a0a", colors: ["#1a1a2e"],
           accent: "#1DB954", accentHi: "#1ed760", accentInk: "#1ed760", onAccent: "#ffffff", onAccentIcon: "#000000" },
         { id: "midnight", name: "Midnight", mode: "dark", style: "aurora", bg: "#070718", surface: "#0d0c26",
           colors: ["#3b2a9e", "#6d28d9", "#0e7490"], glass: true, accent: "#a78bfa", accent2: "#22d3ee" },

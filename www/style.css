@@ -1,5 +1,5 @@
 /* ═══ THEME TOKENS ═══ */
-/* Defaults = the original Spootify look; themes.js overwrites these on <html>. */
+/* Defaults = the original Prism look; themes.js overwrites these on <html>. */
 :root {
     --bg: #0a0a0a;
     --bg-2: #0e0e0e;
