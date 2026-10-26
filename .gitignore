@@ -1,0 +1,16 @@
+# Dependencies and build output
+node_modules/
+dist/
+*.apk
+*.aab
+
+# Signing keys never go in the repo (they live in GitHub secrets)
+*.keystore
+*.jks
+
+# Editor / local tool settings
+.idea/
+.vscode/
+.claude/settings.local.json
+.DS_Store
+Thumbs.db

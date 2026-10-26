@@ -1,0 +1,1491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Spootify</title>
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a0a0a">
+    <script src="themes.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(r) {
+                for (let reg of r) reg.unregister();
+            });
+        }
+    </script>
+</head>
+<body>
+    <div id="theme-bg" class="theme-layer" aria-hidden="true" hidden></div>
+    <div id="boot-progress" class="boot-progress" aria-hidden="true"><div></div></div>
+    <div class="app-container">
+        <!-- Desktop sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <svg viewBox="0 0 24 24" class="brand-icon"><circle cx="12" cy="12" r="10.5" fill="var(--accent)"/><circle cx="12" cy="12" r="7.4" fill="none" stroke="var(--on-accent-icon)" stroke-opacity="0.4" stroke-width="0.9"/><circle cx="12" cy="12" r="5.2" fill="none" stroke="var(--on-accent-icon)" stroke-opacity="0.3" stroke-width="0.8"/><path d="M10.3 8.9v6.2l4.9-3.1z" fill="var(--on-accent-icon)"/></svg>
+                <span>Spootify</span>
+            </div>
+            <button id="home-btn" class="nav-btn active">
+                <svg viewBox="0 0 24 24"><path d="M3 10.8 12 3l9 7.8v9.7a.5.5 0 0 1-.5.5H15v-6H9v6H3.5a.5.5 0 0 1-.5-.5v-9.7Z"/></svg>
+                <span>Home</span>
+            </button>
+            <button id="create-playlist-btn" class="nav-btn accent-btn">
+                <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                <span>Create Playlist</span>
+            </button>
+            <hr class="sidebar-rule">
+            <div class="sidebar-section-label">Your Library</div>
+            <ul id="playlist-links"></ul>
+        </aside>
+
+        <button id="toggle-sidebar-btn" class="sidebar-toggle-arrow" aria-label="Collapse sidebar"></button>
+
+        <main class="main-content" id="main-content">
+            <!-- HOME -->
+            <div id="home-dashboard" class="view">
+                <div class="dashboard-heading">
+                    <div>
+                        <h1 id="greeting-text">Good Day</h1>
+                        <p class="subtitle">Your playlists and music</p>
+                    </div>
+                    <div class="library-actions">
+                        <button id="dj-open-btn" class="utility-btn dj-open-btn" title="Mix two songs live">
+                            <svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 4.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Zm0 3a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z" fill="currentColor"/></svg>
+                            DJ
+                        </button>
+                        <button id="import-link-home-btn" class="utility-btn">From Link</button>
+                        <button id="sync-open-btn" class="utility-btn" title="Swap changes with your phone or PC over Wi-Fi">Sync</button>
+                        <button id="export-library-btn" class="utility-btn">Export</button>
+                        <label class="utility-btn" for="import-library-input">Import</label>
+                        <input type="file" id="import-library-input" accept="application/json,.json" multiple hidden>
+                        <button id="quiet-open-btn" class="quiet-open-btn" type="button" aria-label="Quiet mode" title="Quiet mode: just the background and the essentials">
+                            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M20.5 14.6A8.5 8.5 0 0 1 9.4 3.5a8.5 8.5 0 1 0 11.1 11.1Z" fill="currentColor"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <button id="stats-card" class="stats-card" type="button" aria-label="Open your most listened songs">
+                    <div class="stats-card-icon"><svg viewBox="0 0 24 24"><path d="M5 12h3v8H5zM10.5 4h3v16h-3zM16 8h3v12h-3z"/></svg></div>
+                    <div class="stats-card-text">
+                        <div class="stats-card-title">Most Listened</div>
+                        <div class="stats-card-subtitle" id="stats-card-subtitle">Play something to start tracking</div>
+                    </div>
+                    <div class="stats-card-chart" id="stats-card-chart" aria-hidden="true" hidden></div>
+                    <div class="stats-card-arts" id="stats-card-arts"></div>
+                    <svg class="stats-card-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+                </button>
+                <div id="sotd-card" class="sotd-card" role="button" tabindex="0" aria-label="Play the song of the day" hidden>
+                    <div class="sotd-art-wrap"><img id="sotd-art" src="" alt=""><span class="sotd-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7-11-7Z"/></svg></span></div>
+                    <div class="sotd-text">
+                        <span class="sotd-label">Song of the day</span>
+                        <strong id="sotd-title"></strong>
+                        <span id="sotd-artist" class="sotd-artist"></span>
+                        <span id="sotd-reason" class="sotd-reason"></span>
+                    </div>
+                    <button type="button" id="sotd-reroll" class="sotd-reroll" aria-label="Pick another song" title="Pick another">
+                        <svg viewBox="0 0 24 24"><path d="M17.6 6.4A8 8 0 1 0 19.7 14h-2.1a6 6 0 1 1-1.4-6.2L13 11h7V4l-2.4 2.4Z"/></svg>
+                    </button>
+                </div>
+                <div class="search-container">
+                    <svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" fill="none"/><path d="m16 16 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    <input type="text" id="home-search" class="search-input" placeholder="Search songs, artists, playlists..." autocomplete="off" spellcheck="false">
+                    <button id="home-search-clear" class="search-clear" style="display:none" aria-label="Clear search">&times;</button>
+                </div>
+                <div id="search-results" class="search-results" hidden>
+                    <section class="search-section" id="search-artists-section">
+                        <h2 class="section-title">Artists</h2>
+                        <div class="artist-chips" id="search-artists"></div>
+                    </section>
+                    <section class="search-section" id="search-songs-section">
+                        <h2 class="section-title">Songs</h2>
+                        <div class="search-song-list" id="search-songs"></div>
+                        <button type="button" id="search-more-btn" class="utility-btn search-more-btn">Show all</button>
+                    </section>
+                </div>
+                <div id="home-shelves">
+                    <section class="shelf" id="shelf-recent" hidden>
+                        <div class="shelf-head"><h2 class="section-title">Recently played</h2></div>
+                        <div class="shelf-row" id="shelf-recent-row"></div>
+                    </section>
+                    <section class="shelf" id="shelf-rated" hidden>
+                        <div class="shelf-head"><h2 class="section-title">Top rated</h2></div>
+                        <div class="shelf-row" id="shelf-rated-row"></div>
+                    </section>
+                    <section class="shelf" id="shelf-added" hidden>
+                        <div class="shelf-head"><h2 class="section-title">Recently added</h2></div>
+                        <div class="shelf-row" id="shelf-added-row"></div>
+                    </section>
+                </div>
+                <div class="playlists-head">
+                    <h2 class="section-title playlists-heading" id="playlists-heading">Your playlists</h2>
+                    <button type="button" id="playlist-sort-btn" class="playlist-sort-btn" aria-label="Sort playlists" hidden>
+                        <svg viewBox="0 0 24 24"><path d="M3 7h12v2H3V7Zm0 4h8v2H3v-2Zm0 4h5v2H3v-2Zm15-8h2v9.2l2.3-2.3 1.4 1.4-4.7 4.7-4.7-4.7 1.4-1.4 2.3 2.3V7Z"/></svg>
+                        <span>Your order</span>
+                    </button>
+                </div>
+                <div id="no-playlists-msg" class="empty-state" style="display:none">
+                    <svg viewBox="0 0 24 24" width="48" height="48"><path d="M9 18V5l12-2v13" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="6" cy="18" r="3" fill="currentColor"/><circle cx="18" cy="16" r="3" fill="currentColor"/></svg>
+                    <p>No playlists yet</p>
+                    <span>Create one to get started &mdash; or drop audio files anywhere</span>
+                </div>
+                <div id="no-search-results" class="empty-state" style="display:none">
+                    <p>Nothing matches your search</p>
+                </div>
+                <div class="playlist-grid" id="playlist-grid"></div>
+            </div>
+
+            <!-- PLAYLIST VIEW -->
+            <div id="playlist-view" class="view" style="display:none;">
+                <button id="back-to-home-btn" class="back-btn">
+                    <svg viewBox="0 0 24 24" width="20" height="20"><path d="M15 18 9 12l6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+                    Back
+                </button>
+                <header id="playlist-header" class="playlist-header-container">
+                    <div class="playlist-cover-art-wrapper" id="playlist-cover-wrap">
+                        <img id="playlist-view-art" src="" alt="Playlist Cover">
+                    </div>
+                    <div class="playlist-header-details">
+                        <span class="header-tag">PLAYLIST</span>
+                        <h1 id="current-playlist-name">Select a Playlist</h1>
+                        <div class="playlist-meta-row">
+                            <span id="playlist-creator">Spootify</span>
+                            <span class="bullet-separator">&bull;</span>
+                            <span id="playlist-stats-songs">0 songs</span>
+                            <span class="bullet-separator">&bull;</span>
+                            <span id="playlist-stats-duration">0 min</span>
+                        </div>
+                        <div class="playlist-actions">
+                            <button id="play-all-btn" class="play-all-btn" aria-label="Play all">
+                                <svg viewBox="0 0 24 24" width="22" height="22"><path d="M8 5v14l11-7-11-7Z" fill="currentColor"/></svg>
+                            </button>
+                            <button id="add-song-btn" class="accent-btn">+ Add Songs</button>
+                            <button id="import-link-btn" class="utility-btn">&#8595; From Link</button>
+                            <button id="playlist-options-btn" class="dots-trigger-btn" aria-label="Playlist options"></button>
+                        </div>
+                    </div>
+                </header>
+                <div class="search-container">
+                    <svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" fill="none"/><path d="m16 16 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    <input type="text" id="playlist-search" class="search-input" placeholder="Search songs..." autocomplete="off" spellcheck="false">
+                    <button id="playlist-search-clear" class="search-clear" style="display:none" aria-label="Clear search">&times;</button>
+                </div>
+                <div class="song-row header-row" id="song-list-header">
+                    <div class="col-num"><button type="button" class="sort-btn" data-sort="" title="Order added">#</button></div>
+                    <div class="col-img-space"></div>
+                    <div class="col-title">
+                        <button type="button" class="sort-btn" data-sort="title">Title</button>
+                        <button type="button" class="sort-btn" data-sort="artist">Artist</button>
+                    </div>
+                    <div class="col-date"><button type="button" class="sort-btn" data-sort="date"><span class="sort-label-long">Date Added</span><span class="sort-label-short">Added</span></button><button type="button" class="sort-btn" data-sort="plays" title="Most played first">Plays</button><button type="button" class="sort-btn" data-sort="rating" title="Highest rated first"><span class="sort-label-long">Rating</span><span class="sort-label-short" aria-label="Rating">&#9733;</span></button></div>
+                    <div class="col-like"></div>
+                    <div class="col-length"><button type="button" class="sort-btn" data-sort="length">Length</button></div>
+                    <div class="col-dots"></div>
+                </div>
+                <div id="song-list"></div>
+                <div class="float-actions" id="float-actions">
+                    <button type="button" id="jump-playing-btn" class="jump-playing-btn" hidden></button>
+                    <button type="button" id="scroll-end-btn" class="scroll-end-btn" hidden></button>
+                </div>
+                <!-- Selecting songs: what to do with them (see SELECT SONGS in app.v2.js) -->
+                <div id="select-bar" class="select-bar" role="toolbar" aria-label="Selected songs" hidden>
+                    <button type="button" class="select-bar-close" data-sel="done" aria-label="Stop selecting" title="Stop selecting"></button>
+                    <span id="select-count" class="select-count">0 selected</span>
+                    <button type="button" class="select-all" data-sel="all">All</button>
+                    <span class="select-bar-spacer"></span>
+                    <button type="button" class="select-act" data-sel="like"></button>
+                    <button type="button" class="select-act" data-sel="queue"></button>
+                    <button type="button" class="select-act" data-sel="add"></button>
+                    <button type="button" class="select-act danger" data-sel="remove"></button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Desktop queue panel -->
+        <aside class="queue-panel" id="queue-panel">
+            <div class="queue-header">
+                <div><h2>Queue</h2><span>Drag songs to reorder</span></div>
+                <button id="clear-queue-btn" class="utility-btn">Clear</button>
+            </div>
+            <div id="queue-list" class="drag-list" data-list="queue"></div>
+            <h3 id="next-heading">Next from playlist</h3>
+            <div id="next-list" class="drag-list" data-list="next"></div>
+        </aside>
+    </div>
+
+    <!-- DESKTOP player bar -->
+    <footer class="player-bar" id="desktop-player">
+        <canvas class="bar-visualizer" id="bar-visualizer" aria-hidden="true"></canvas>
+        <div class="now-playing" id="mini-player-trigger">
+            <img id="track-art" src="" alt="Cover">
+            <div class="now-playing-text">
+                <div id="track-title">No Song Selected</div>
+                <div id="track-artist">Unknown Artist</div>
+            </div>
+            <button class="like-btn player-like" id="player-like-btn" aria-label="Save to Liked Songs" hidden></button>
+        </div>
+        <div class="controls-container">
+            <div class="control-buttons">
+                <button class="icon-btn" id="shuffle-btn" aria-label="Shuffle"></button>
+                <button class="icon-btn skip-btn" id="skip-back-btn" aria-label="Back 10 seconds"></button>
+                <button class="icon-btn" id="prev-btn" aria-label="Previous"></button>
+                <button class="player-main-btn" id="play-pause-btn" aria-label="Play"></button>
+                <button class="icon-btn" id="next-btn" aria-label="Next"></button>
+                <button class="icon-btn skip-btn" id="skip-fwd-btn" aria-label="Forward 10 seconds"></button>
+                <button class="icon-btn" id="loop-btn" aria-label="Loop"></button>
+            </div>
+            <div class="progress-container">
+                <span id="current-time">0:00</span>
+                <div class="progress-wrap">
+                    <input type="range" id="progress-bar" value="0" max="100" step="0.01" aria-label="Seek">
+                    <div class="progress-tip" id="progress-tip">0:00</div>
+                </div>
+                <span id="total-time">0:00</span>
+            </div>
+        </div>
+        <div class="volume-container">
+            <button id="queue-toggle-btn" class="icon-btn" aria-label="Hide queue" title="Hide queue"></button>
+            <button id="volume-icon-btn" class="icon-btn" aria-label="Mute"></button>
+            <div class="volume-slider-wrapper">
+                <input type="range" id="volume-bar" min="0" max="100" value="80" aria-label="Volume">
+            </div>
+            <button id="mini-player-btn" class="icon-btn" aria-label="Mini player" title="Mini player (stays on top)" hidden>
+                <svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6h-2V5H5v14h6v2H5a2 2 0 0 1-2-2V5Zm10 9a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-6Z" fill="currentColor"/></svg>
+            </button>
+            <button id="settings-btn" class="icon-btn" aria-label="Settings" title="Settings">
+                <svg viewBox="0 0 24 24" width="18" height="18"><path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.48.48 0 0 0-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87a.48.48 0 0 0 .12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.26.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58ZM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2Z" fill="currentColor"/></svg>
+            </button>
+        </div>
+    </footer>
+
+    <!-- MOBILE mini player (sits above bottom nav) -->
+    <div class="mobile-mini-player" id="mobile-mini-player">
+        <div class="mini-progress-bar"><div class="mini-progress-fill" id="mini-progress-fill"></div></div>
+        <div class="mini-player-content" id="mini-player-tap">
+            <img id="mini-track-art" src="" alt="">
+            <div class="mini-track-info">
+                <div id="mini-track-title">No Song Selected</div>
+                <div id="mini-track-artist">Unknown Artist</div>
+            </div>
+            <button class="like-btn mini-like" id="mini-like-btn" aria-label="Save to Liked Songs"></button>
+            <button class="mini-play-btn" id="mini-play-btn" aria-label="Play">
+                <svg viewBox="0 0 24 24" width="28" height="28"><path d="M8 5v14l11-7-11-7Z" fill="currentColor"/></svg>
+            </button>
+            <button class="mini-next-btn" id="mini-next-btn" aria-label="Next">
+                <svg viewBox="0 0 24 24" width="22" height="22"><path d="M16 5h2v14h-2V5ZM5 19l10-7L5 5v14Z" fill="currentColor"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- MOBILE bottom navigation -->
+    <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+        <button class="bottom-nav-item active" data-tab="home" id="tab-home">
+            <svg viewBox="0 0 24 24"><path d="M3 10.8 12 3l9 7.8v9.7a.5.5 0 0 1-.5.5H15v-6H9v6H3.5a.5.5 0 0 1-.5-.5v-9.7Z"/></svg>
+            <span>Home</span>
+        </button>
+        <button class="bottom-nav-item" data-tab="create" id="tab-create">
+            <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/></svg>
+            <span>Create</span>
+        </button>
+        <button class="bottom-nav-item" data-tab="import" id="tab-import">
+            <svg viewBox="0 0 24 24"><path d="M10.6 13.4a1 1 0 0 1 0-1.4l2.8-2.8a1 1 0 1 1 1.4 1.4l-2.8 2.8a1 1 0 0 1-1.4 0Zm-2.1 4.2a3 3 0 0 1 0-4.2l2.1-2.1a1 1 0 0 0-1.4-1.4l-2.1 2.1a5 5 0 0 0 7 7l2.1-2.1a1 1 0 0 0-1.4-1.4l-2.1 2.1a3 3 0 0 1-4.2 0Zm7-11.2a3 3 0 0 1 0 4.2l-2.1 2.1a1 1 0 1 0 1.4 1.4l2.1-2.1a5 5 0 0 0-7-7L7.8 7.1a1 1 0 0 0 1.4 1.4l2.1-2.1a3 3 0 0 1 4.2 0Z"/></svg>
+            <span>Import</span>
+        </button>
+        <button class="bottom-nav-item" data-tab="settings" id="tab-settings">
+            <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.48.48 0 0 0-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87a.48.48 0 0 0 .12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.26.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58ZM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2Z" fill="currentColor"/></svg>
+            <span>Settings</span>
+        </button>
+    </nav>
+
+    <!-- FULLSCREEN now-playing overlay (mobile) -->
+    <div class="now-playing-screen" id="now-playing-screen">
+        <div id="np-theme-bg" class="theme-layer np-theme-bg" aria-hidden="true" hidden></div>
+        <div class="np-header">
+            <button class="np-collapse-btn" id="np-collapse-btn" aria-label="Collapse">
+                <svg viewBox="0 0 24 24" width="28" height="28"><path d="M7 10l5 5 5-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+            </button>
+            <div class="np-source" id="np-source">Playing from playlist</div>
+            <button class="np-options-btn dots-trigger-btn" id="np-options-btn" aria-label="Options">
+                <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+            </button>
+        </div>
+        <div class="np-art-container">
+            <img id="np-art" src="" alt="Cover Art" class="np-art">
+        </div>
+        <canvas class="np-visualizer" id="np-visualizer" aria-hidden="true"></canvas>
+        <div class="np-track-info">
+            <div class="np-track-text">
+                <div class="np-title" id="np-title">No Song Selected</div>
+                <div class="np-artist" id="np-artist">Unknown Artist</div>
+            </div>
+            <button class="like-btn np-like" id="np-like-btn" aria-label="Save to Liked Songs"></button>
+        </div>
+        <div class="np-rating" id="np-rating" role="group" aria-label="Not rated" hidden><button type="button" data-rate="1" aria-label="1 star">&#9733;</button><button type="button" data-rate="2" aria-label="2 stars">&#9733;</button><button type="button" data-rate="3" aria-label="3 stars">&#9733;</button><button type="button" data-rate="4" aria-label="4 stars">&#9733;</button><button type="button" data-rate="5" aria-label="5 stars">&#9733;</button></div>
+        <div class="np-progress">
+            <input type="range" id="np-progress-bar" class="np-slider" value="0" max="100" step="0.01" aria-label="Seek">
+            <div class="np-times">
+                <span id="np-current-time">0:00</span>
+                <div class="np-skip-row">
+                    <button type="button" class="np-skip-btn skip-btn" id="np-skip-back-btn" aria-label="Back 10 seconds"></button>
+                    <button type="button" class="np-skip-btn skip-btn" id="np-skip-fwd-btn" aria-label="Forward 10 seconds"></button>
+                </div>
+                <span id="np-total-time">0:00</span>
+            </div>
+        </div>
+        <div class="np-controls">
+            <button class="np-ctrl-btn" id="np-shuffle-btn" aria-label="Shuffle">
+                <svg viewBox="0 0 24 24"><path d="M17 3h4v4h-2V6h-2.4l-3.2 4.1-1.3-1.6L15.6 4H19V3h-2ZM4 7h3.4l10.2 13H19v-1h2v4h-4v-2h-1.4L5.4 9H4V7Zm0 10h1.4l3.2-4.1 1.3 1.6L6.4 19H4v-2Z"/></svg>
+            </button>
+            <button class="np-ctrl-btn np-ctrl-lg" id="np-prev-btn" aria-label="Previous">
+                <svg viewBox="0 0 24 24"><path d="M6 5h2v14H6V5Zm3 7 10 7V5L9 12Z"/></svg>
+            </button>
+            <button class="np-play-btn" id="np-play-btn" aria-label="Play">
+                <svg viewBox="0 0 24 24" width="32" height="32"><path d="M8 5v14l11-7-11-7Z" fill="currentColor"/></svg>
+            </button>
+            <button class="np-ctrl-btn np-ctrl-lg" id="np-next-btn" aria-label="Next">
+                <svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2V5ZM5 19l10-7L5 5v14Z"/></svg>
+            </button>
+            <button class="np-ctrl-btn" id="np-loop-btn" aria-label="Loop">
+                <svg viewBox="0 0 24 24"><path d="M7 7h9.6L15 5.4 16.4 4 20.4 8l-4 4L15 10.6 16.6 9H7a3 3 0 0 0-3 3H2a5 5 0 0 1 5-5Zm10 10H7.4L9 18.6 7.6 20l-4-4 4-4L9 13.4 7.4 15H17a3 3 0 0 0 3-3h2a5 5 0 0 1-5 5Z"/></svg>
+            </button>
+        </div>
+        <div class="np-queue-section">
+            <div class="np-queue-header">
+                <h3>Queue</h3>
+                <button class="np-queue-clear" id="np-queue-clear">Clear</button>
+            </div>
+            <div class="np-queue-list drag-list" id="np-queue-list" data-list="queue"></div>
+            <div class="np-next-label" id="np-next-label">Next up</div>
+            <div class="np-queue-list drag-list" id="np-next-list" data-list="next"></div>
+        </div>
+    </div>
+
+    <!-- Listening stats overlay -->
+    <div id="stats-overlay" class="settings-overlay" style="display:none;">
+        <div class="settings-panel stats-panel">
+            <div class="settings-header">
+                <h2>Most Listened</h2>
+                <span class="settings-header-spacer"></span>
+                <button type="button" id="wrapped-open-btn" class="wrapped-open-btn" title="Your year (or month) in music">
+                    <svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2l2.4 5.6L20 10l-5.6 2.4L12 18l-2.4-5.6L4 10l5.6-2.4L12 2Zm7 13 1 2.3 2.3 1-2.3 1L19 22l-1-2.3-2.3-1 2.3-1L19 15Z" fill="currentColor"/></svg>
+                    Wrapped
+                </button>
+                <button id="stats-close-btn" class="settings-close-btn" aria-label="Close">
+                    <svg viewBox="0 0 24 24" width="24" height="24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                </button>
+            </div>
+            <div class="listen-chart">
+                <div class="segmented chart-periods" id="chart-periods">
+                    <button type="button" data-value="week" class="active">Week</button>
+                    <button type="button" data-value="month">Month</button>
+                    <button type="button" data-value="year">Year</button>
+                    <button type="button" data-value="all">All time</button>
+                </div>
+                <div class="chart-head">
+                    <button type="button" class="chart-nav" id="chart-prev" aria-label="Previous period"><svg viewBox="0 0 24 24"><path d="M15 18 9 12l6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button>
+                    <div class="chart-head-text"><strong id="chart-total">0s</strong><span id="chart-range">This week</span></div>
+                    <button type="button" class="chart-nav" id="chart-next" aria-label="Next period"><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button>
+                </div>
+                <div class="chart-badges"><span id="chart-compare" class="chart-compare" hidden></span><span id="chart-streak" class="chart-streak" hidden></span></div>
+                <div class="chart-area" id="chart-area">
+                    <div class="chart-avg" id="chart-avg" hidden><span></span></div>
+                    <div class="chart-bars" id="chart-bars"></div>
+                    <div class="chart-tip" id="chart-tip" role="status"></div>
+                </div>
+                <div class="chart-labels" id="chart-labels"></div>
+                <p class="chart-hint">Hold (or hover) a bar to see its time &middot; tap it to see what you played then.</p>
+                <p class="chart-note" id="chart-note" hidden></p>
+            </div>
+            <div class="stats-summary">
+                <div class="stats-summary-item"><strong id="stats-total-plays">0</strong><span>Plays</span></div>
+                <div class="stats-summary-item"><strong id="stats-total-time">0s</strong><span>Listened</span></div>
+                <div class="stats-summary-item"><strong id="stats-total-songs">0</strong><span id="stats-count-label">Songs</span></div>
+            </div>
+            <div class="listen-clock">
+                <div class="milestones-head"><span class="settings-label">When you listen</span><span id="clock-since" class="milestones-count"></span></div>
+                <div class="clock-grid" id="clock-grid" role="img" aria-label="Listening by weekday and hour"></div>
+                <div class="clock-hours" id="clock-hours"><span></span><span>12am</span><span>6am</span><span>12pm</span><span>6pm</span></div>
+                <p class="clock-summary" id="clock-summary"></p>
+                <p class="clock-empty" id="clock-empty" hidden>Listen for a bit and this fills in with the days and hours you play music most.</p>
+            </div>
+            <div class="milestones">
+                <div class="milestones-head"><span class="settings-label">Milestones</span><span id="milestones-count" class="milestones-count"></span></div>
+                <div class="milestone-row" id="milestone-row"></div>
+            </div>
+            <div class="stats-toolbar">
+                <div class="stats-sort">
+                    <div class="segmented" id="stats-view">
+                        <button type="button" data-value="songs" class="active">Songs</button>
+                        <button type="button" data-value="artists">Artists</button>
+                        <button type="button" data-value="skipped">Skipped</button>
+                    </div>
+                    <button type="button" class="stats-sort-btn active" data-sort="plays">Most plays</button>
+                    <button type="button" class="stats-sort-btn" data-sort="time">Most time</button>
+                </div>
+            </div>
+            <div class="stats-filter" id="stats-filter" hidden>
+                <span>Showing <strong id="stats-filter-label"></strong></span>
+                <button type="button" id="stats-filter-clear" class="stats-filter-clear" aria-label="Show the whole period">&times;</button>
+            </div>
+            <div id="stats-list" class="stats-list"></div>
+            <p class="stats-hint" id="stats-hint">A play is counted after 10 seconds of listening. Stats are saved on this device.</p>
+        </div>
+    </div>
+
+    <!-- Settings overlay -->
+    <div id="settings-overlay" class="settings-overlay" style="display:none;">
+        <div class="settings-panel">
+            <div class="settings-header">
+                <h2>Settings</h2>
+                <button id="settings-close-btn" class="settings-close-btn" aria-label="Close">
+                    <svg viewBox="0 0 24 24" width="24" height="24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                </button>
+            </div>
+            <div class="settings-tabs" role="tablist">
+                <button type="button" class="settings-tab active" data-tab="playback" role="tab">Playback</button>
+                <button type="button" class="settings-tab" data-tab="audio" role="tab">Audio</button>
+                <button type="button" class="settings-tab" data-tab="appearance" role="tab">Appearance</button>
+                <button type="button" class="settings-tab" data-tab="general" role="tab">General</button>
+            </div>
+            <div class="settings-body">
+              <div class="settings-tab-panel" data-tab="playback">
+                <div class="settings-group">
+                    <label class="settings-label">Playback Speed</label>
+                    <div class="speed-presets">
+                        <button class="speed-preset-btn" data-speed="50">0.5x</button>
+                        <button class="speed-preset-btn" data-speed="75">0.75x</button>
+                        <button class="speed-preset-btn active" data-speed="100">1x</button>
+                        <button class="speed-preset-btn" data-speed="125">1.25x</button>
+                        <button class="speed-preset-btn" data-speed="150">1.5x</button>
+                        <button class="speed-preset-btn" data-speed="200">2x</button>
+                    </div>
+                    <div class="settings-slider-row">
+                        <button type="button" class="speed-nudge-btn" id="speed-minus" aria-label="1% slower">&minus;</button>
+                        <input type="range" id="speed-slider" min="50" max="200" step="1" value="100" class="settings-slider" aria-label="Playback speed">
+                        <button type="button" class="speed-nudge-btn" id="speed-plus" aria-label="1% faster">+</button>
+                        <div class="speed-value-wrap">
+                            <input type="number" id="speed-input" class="speed-value-input" min="0.5" max="2" step="0.01" value="1.00" inputmode="decimal" aria-label="Exact speed">
+                            <span>&times;</span>
+                        </div>
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="preserve-pitch-toggle">Keep original pitch</label>
+                        <input type="checkbox" id="preserve-pitch-toggle" class="settings-switch">
+                    </div>
+                    <span class="settings-hint" id="pitch-hint"></span>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">Shuffle &amp; Up Next</label>
+                    <div class="settings-toggle-row settings-toggle-row-first">
+                        <label for="smart-shuffle-toggle">Smart shuffle</label>
+                        <input type="checkbox" id="smart-shuffle-toggle" class="settings-switch" checked>
+                    </div>
+                    <span class="settings-hint">Plays songs you haven't heard lately first and spreads out songs by the same artist.</span>
+                    <div class="settings-choice-row">
+                        <span>Songs shown in "Next up"</span>
+                        <div class="stepper">
+                            <button type="button" class="speed-nudge-btn" id="nextup-minus" aria-label="Show fewer">&minus;</button>
+                            <input type="number" id="pref-nextup" class="speed-value-input stepper-input" min="1" max="500" step="1" inputmode="numeric" placeholder="All" aria-label="Songs shown in Next up">
+                            <button type="button" class="speed-nudge-btn" id="nextup-plus" aria-label="Show more">+</button>
+                        </div>
+                    </div>
+                    <div class="segmented nextup-choice" id="nextup-choice">
+                        <button type="button" data-value="5">5</button>
+                        <button type="button" data-value="10">10</button>
+                        <button type="button" data-value="25">25</button>
+                        <button type="button" data-value="50">50</button>
+                        <button type="button" data-value="0">All</button>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">Sleep Timer</label>
+                    <div class="sleep-timer-row">
+                        <select id="sleep-timer-select" class="settings-select">
+                            <option value="0">Off</option>
+                            <option value="-1">End of current song</option>
+                            <option value="15">15 minutes</option>
+                            <option value="30">30 minutes</option>
+                            <option value="45">45 minutes</option>
+                            <option value="60">1 hour</option>
+                            <option value="90">1.5 hours</option>
+                        </select>
+                        <span id="sleep-timer-remaining" class="timer-countdown" style="display:none;"></span>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">Crossfade</label>
+                    <div class="settings-slider-row">
+                        <input type="range" id="crossfade-slider" min="0" max="12" step="1" value="0" class="settings-slider">
+                        <span id="crossfade-display" class="settings-value">Off</span>
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="crossfade-overlap-toggle">Start next song during fade</label>
+                        <input type="checkbox" id="crossfade-overlap-toggle" class="settings-switch">
+                    </div>
+                    <span class="settings-hint" id="crossfade-hint">Fade out the end of each track; the next song then starts normally.</span>
+                </div>
+              </div>
+              <div class="settings-tab-panel" data-tab="audio" style="display:none;">
+                <div class="settings-group">
+                    <div class="fx-header">
+                        <label class="settings-label">Sound Presets</label>
+                        <button type="button" id="preset-save-btn" class="utility-btn">Save current</button>
+                    </div>
+                    <div class="preset-chips" id="preset-chips"></div>
+                    <span class="settings-hint">A preset sets speed, pitch and effects in one tap. Right-click or long-press one of your own to delete it.</span>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">Volume Leveller</label>
+                    <div class="settings-toggle-row settings-toggle-row-first">
+                        <label for="leveller-toggle">Make all songs the same volume</label>
+                        <input type="checkbox" id="leveller-toggle" class="settings-switch">
+                    </div>
+                    <span class="settings-hint" id="leveller-hint"></span>
+                </div>
+                <div class="settings-group">
+                    <div class="fx-header">
+                        <label class="settings-label">Equaliser &amp; Effects</label>
+                        <button type="button" id="fx-reset-btn" class="utility-btn" disabled>Reset to defaults</button>
+                    </div>
+                    <div class="fx-row"><span class="fx-name">Bass</span><input type="range" id="fx-bass" class="settings-slider" min="-12" max="12" step="1" value="0" aria-label="Bass"><span class="settings-value fx-value" id="fx-bass-value">0 dB</span></div>
+                    <div class="fx-row"><span class="fx-name">Mid</span><input type="range" id="fx-mid" class="settings-slider" min="-12" max="12" step="1" value="0" aria-label="Mid"><span class="settings-value fx-value" id="fx-mid-value">0 dB</span></div>
+                    <div class="fx-row"><span class="fx-name">Treble</span><input type="range" id="fx-treble" class="settings-slider" min="-12" max="12" step="1" value="0" aria-label="Treble"><span class="settings-value fx-value" id="fx-treble-value">0 dB</span></div>
+                    <div class="fx-row"><span class="fx-name">Reverb</span><input type="range" id="fx-reverb" class="settings-slider" min="0" max="100" step="1" value="0" aria-label="Reverb"><span class="settings-value fx-value" id="fx-reverb-value">Off</span></div>
+                    <div class="fx-row"><span class="fx-name">Balance</span><input type="range" id="fx-pan" class="settings-slider" min="-100" max="100" step="1" value="0" aria-label="Balance"><span class="settings-value fx-value" id="fx-pan-value">Centre</span></div>
+                    <span class="settings-hint">Double-tap a slider to put it back to the middle. These apply to everything you play.</span>
+                </div>
+              </div>
+              <div class="settings-tab-panel" data-tab="appearance" style="display:none;">
+                <div class="settings-group">
+                    <div class="fx-header">
+                        <label class="settings-label">Theme</label>
+                        <span class="theme-head-btns"><button type="button" id="theme-paste-btn" class="utility-btn" title="Add a theme someone shared as a code">Paste code</button><button type="button" id="theme-new-btn" class="utility-btn">+ New theme</button></span>
+                    </div>
+                    <div class="theme-grid" id="theme-grid"></div>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">Accent Colour</label>
+                    <div class="accent-swatches" id="accent-swatches"></div>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">Display</label>
+                    <div class="settings-toggle-row settings-toggle-row-first">
+                        <label for="art-colors-toggle">Colours from album art</label>
+                        <input type="checkbox" id="art-colors-toggle" class="settings-switch">
+                    </div>
+                    <span class="settings-hint">Tints the playlist header and the player with the cover's colours.</span>
+                    <div class="settings-choice-row">
+                        <span>Visualizer</span>
+                        <div class="segmented" id="visualizer-choice">
+                            <button type="button" data-value="off">Off</button>
+                            <button type="button" data-value="bars">Bars</button>
+                            <button type="button" data-value="wave">Wave</button>
+                        </div>
+                    </div>
+                    <div class="settings-toggle-row" id="viz-extreme-row">
+                        <label for="viz-extreme-toggle">Extreme visualizer</label>
+                        <input type="checkbox" id="viz-extreme-toggle" class="settings-switch">
+                    </div>
+                    <span class="settings-hint" id="viz-extreme-hint">Bigger: the same bars, scaled up, with their movement exaggerated, and a taller visualizer on the full-screen player.</span>
+                    <div class="settings-choice-row">
+                        <span>Playlist cards</span>
+                        <div class="segmented" id="card-size-choice">
+                            <button type="button" data-value="s">Small</button>
+                            <button type="button" data-value="m">Medium</button>
+                            <button type="button" data-value="l">Large</button>
+                        </div>
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="compact-toggle">Compact song rows</label>
+                        <input type="checkbox" id="compact-toggle" class="settings-switch">
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="reduce-motion-toggle">Reduce motion</label>
+                        <input type="checkbox" id="reduce-motion-toggle" class="settings-switch">
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="animations-toggle">Extra animations</label>
+                        <input type="checkbox" id="animations-toggle" class="settings-switch">
+                    </div>
+                    <span class="settings-hint">Buttons, cards, rows, menus and pop-ups all move a little. Reduce motion turns every animation off.</span>
+                    <div class="settings-toggle-row">
+                        <label for="native-picker-toggle">Use the system colour picker</label>
+                        <input type="checkbox" id="native-picker-toggle" class="settings-switch">
+                    </div>
+                    <span class="settings-hint">Off: Spootify's own picker, which always opens on the colour you already have.</span>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">Star Ratings</label>
+                    <div class="settings-toggle-row settings-toggle-row-first">
+                        <label for="stars-lists-toggle">Stars in song lists</label>
+                        <input type="checkbox" id="stars-lists-toggle" class="settings-switch">
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="stars-player-toggle">Stars on the full-screen player</label>
+                        <input type="checkbox" id="stars-player-toggle" class="settings-switch">
+                    </div>
+                    <span class="settings-hint">You can still rate any song from its &#8943; menu, and sort a playlist by rating.</span>
+                    <div class="settings-choice-row stacked">
+                        <span>When you give 5 stars</span>
+                        <div class="segmented" id="rate-fx5-choice">
+                            <button type="button" data-value="off">Nothing</button>
+                            <button type="button" data-value="sparkle">Sparkles</button>
+                            <button type="button" data-value="confetti">Confetti</button>
+                            <button type="button" data-value="glow">Golden glow</button>
+                            <button type="button" data-value="hearts">Hearts</button>
+                        </div>
+                    </div>
+                    <div class="settings-choice-row stacked">
+                        <span>When you give 1 star</span>
+                        <div class="segmented" id="rate-fx1-choice">
+                            <button type="button" data-value="off">Nothing</button>
+                            <button type="button" data-value="rain">Rain cloud</button>
+                            <button type="button" data-value="shake">Shake</button>
+                            <button type="button" data-value="crumble">Crumble</button>
+                            <button type="button" data-value="sink">Sink</button>
+                        </div>
+                    </div>
+                    <span class="settings-hint">Tap an effect to see it. Effects are skipped with Reduce motion on.</span>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">Home Screen</label>
+                    <div class="settings-toggle-row settings-toggle-row-first">
+                        <label for="show-stats-toggle">Most Listened card</label>
+                        <input type="checkbox" id="show-stats-toggle" class="settings-switch">
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="show-mini-chart-toggle">Last-7-days chart on the card</label>
+                        <input type="checkbox" id="show-mini-chart-toggle" class="settings-switch">
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="show-recent-toggle">Recently played</label>
+                        <input type="checkbox" id="show-recent-toggle" class="settings-switch">
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="show-rated-toggle">Top rated</label>
+                        <input type="checkbox" id="show-rated-toggle" class="settings-switch">
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="show-added-toggle">Recently added</label>
+                        <input type="checkbox" id="show-added-toggle" class="settings-switch">
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="show-sotd-toggle">Song of the day</label>
+                        <input type="checkbox" id="show-sotd-toggle" class="settings-switch">
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="show-dj-toggle">DJ button</label>
+                        <input type="checkbox" id="show-dj-toggle" class="settings-switch">
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="show-quiet-toggle">Quiet mode button</label>
+                        <input type="checkbox" id="show-quiet-toggle" class="settings-switch">
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">Quiet Mode</label>
+                    <div class="settings-toggle-row settings-toggle-row-first">
+                        <label for="quiet-art-toggle">Cover</label>
+                        <input type="checkbox" id="quiet-art-toggle" class="settings-switch">
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="quiet-text-toggle">Song title and artist</label>
+                        <input type="checkbox" id="quiet-text-toggle" class="settings-switch">
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="quiet-progress-toggle">Progress bar and times</label>
+                        <input type="checkbox" id="quiet-progress-toggle" class="settings-switch">
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="quiet-buttons-toggle">Play, back and skip buttons</label>
+                        <input type="checkbox" id="quiet-buttons-toggle" class="settings-switch">
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="quiet-drift-toggle">Drifting dots keep moving</label>
+                        <input type="checkbox" id="quiet-drift-toggle" class="settings-switch">
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="quiet-smooth-toggle">Smooth progress bar</label>
+                        <input type="checkbox" id="quiet-smooth-toggle" class="settings-switch">
+                    </div>
+                    <span class="settings-hint">The last two use more battery: quiet mode normally freezes the background and moves the bar a few times a second.</span>
+                </div>
+              </div>
+              <div class="settings-tab-panel" data-tab="general" style="display:none;">
+                <div class="settings-group" id="update-group" hidden>
+                    <label class="settings-label">App updates</label>
+                    <div class="update-row">
+                        <span id="update-version">Spootify</span>
+                        <div class="update-actions">
+                            <button type="button" id="update-check-btn" class="utility-btn">Check for updates</button>
+                            <button type="button" id="update-install-btn" class="utility-btn accent-outline" hidden>Update now</button>
+                        </div>
+                    </div>
+                    <span id="update-status" class="settings-hint"></span>
+                    <div class="settings-toggle-row">
+                        <label for="update-auto">Check when Spootify starts</label>
+                        <input type="checkbox" id="update-auto" class="settings-switch" checked>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label" for="pref-name">Your Name</label>
+                    <input type="text" id="pref-name" class="settings-text" maxlength="40" autocomplete="off" placeholder="Shown in the greeting (optional)">
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">Startup</label>
+                    <div class="settings-toggle-row settings-toggle-row-first">
+                        <label for="pref-open-home">Open on Home</label>
+                        <input type="checkbox" id="pref-open-home" class="settings-switch">
+                    </div>
+                    <span class="settings-hint">Off: reopen the playlist you were last looking at.</span>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">Player</label>
+                    <div class="settings-toggle-row settings-toggle-row-first">
+                        <label for="pref-smooth-pause">Smooth play &amp; pause</label>
+                        <input type="checkbox" id="pref-smooth-pause" class="settings-switch">
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="pref-upnext">Up-next reminder</label>
+                        <input type="checkbox" id="pref-upnext" class="settings-switch">
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="pref-remaining">Show remaining time</label>
+                        <input type="checkbox" id="pref-remaining" class="settings-switch">
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="pref-skip">Skip 10 seconds buttons</label>
+                        <input type="checkbox" id="pref-skip" class="settings-switch">
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="pref-jump">"Now playing" jump button in playlists</label>
+                        <input type="checkbox" id="pref-jump" class="settings-switch">
+                    </div>
+                    <div class="settings-toggle-row">
+                        <label for="pref-scroll-end">Jump to bottom / top button in long playlists</label>
+                        <input type="checkbox" id="pref-scroll-end" class="settings-switch">
+                    </div>
+                    <span class="settings-hint">Tip: tap the song's total time in the player to switch to a countdown.</span>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">Library</label>
+                    <div class="library-tools">
+                        <button type="button" id="open-bin-btn" class="library-tool">
+                            <svg viewBox="0 0 24 24"><path d="M6 7h12l-1 13H7L6 7Zm3-3h6l1 2H8l1-2Zm-4 2h14v2H5V6Z"/></svg>
+                            <span><strong>Recently deleted</strong><small>Get back songs and playlists from the last 30 days</small></span>
+                            <em id="bin-count" class="library-tool-count"></em>
+                        </button>
+                        <button type="button" id="open-dup-btn" class="library-tool">
+                            <svg viewBox="0 0 24 24"><path d="M8 3h11a2 2 0 0 1 2 2v11h-2V5H8V3Zm-3 4h11a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm0 2v11h11V9H5Z"/></svg>
+                            <span><strong>Find duplicates</strong><small>Songs added twice, or saved as two files</small></span>
+                        </button>
+                        <button type="button" id="open-storage-btn" class="library-tool">
+                            <svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3H4V5Zm0 5h16v4H4v-4Zm0 6h16v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3Zm3-10.5v1h2v-1H7Zm0 6.5v1h2v-1H7Zm0 6.5v1h2v-1H7Z"/></svg>
+                            <span><strong>Storage</strong><small>What takes up space, the biggest songs, and what can be cleaned up</small></span>
+                        </button>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">Stats</label>
+                    <div class="settings-choice-row settings-toggle-row-first">
+                        <label for="pref-listen-after">Count a listen after</label>
+                        <div class="stepper">
+                            <button type="button" class="speed-nudge-btn" data-step="listenAfter" data-delta="-1" aria-label="Fewer seconds">&minus;</button>
+                            <input type="number" id="pref-listen-after" class="speed-value-input stepper-input" min="1" max="600" step="1" inputmode="numeric" aria-label="Seconds before a listen counts">
+                            <button type="button" class="speed-nudge-btn" data-step="listenAfter" data-delta="1" aria-label="More seconds">+</button>
+                            <span class="stepper-unit">sec</span>
+                        </div>
+                    </div>
+                    <div class="settings-choice-row">
+                        <label for="pref-skip-before">Count a skip if I skip before</label>
+                        <div class="stepper">
+                            <button type="button" class="speed-nudge-btn" data-step="skipBefore" data-delta="-1" aria-label="Fewer seconds">&minus;</button>
+                            <input type="number" id="pref-skip-before" class="speed-value-input stepper-input" min="0" max="600" step="1" inputmode="numeric" placeholder="Half" aria-label="Seconds before a skip counts">
+                            <button type="button" class="speed-nudge-btn" data-step="skipBefore" data-delta="1" aria-label="More seconds">+</button>
+                            <span class="stepper-unit">sec</span>
+                        </div>
+                    </div>
+                    <span class="settings-hint" id="pref-count-hint"></span>
+                    <div class="settings-toggle-row">
+                        <label for="pref-milestones">Milestone pop-ups</label>
+                        <input type="checkbox" id="pref-milestones" class="settings-switch">
+                    </div>
+                    <span class="settings-hint">A little message when you unlock a milestone, like 10 hours listened or a 7-day streak.</span>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">Problems</label>
+                    <span class="settings-hint">If Spootify crashes or restarts, it's noted here with what it was doing, so the cause is easier to find.</span>
+                    <div id="problem-log" class="problem-log"></div>
+                    <div class="problem-actions">
+                        <button type="button" id="problem-copy-btn" class="utility-btn">Copy</button>
+                        <button type="button" id="problem-clear-btn" class="utility-btn">Clear</button>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">Reset</label>
+                    <div class="library-tools reset-tools">
+                        <button type="button" class="library-tool" data-reset="stats"><span><strong>Clear listening stats</strong><small>Plays, history, skips, the listening clock and milestones</small></span></button>
+                        <button type="button" class="library-tool" data-reset="ratings"><span><strong>Clear ratings</strong><small>Every song's stars</small></span></button>
+                        <button type="button" class="library-tool" data-reset="appearance"><span><strong>Reset appearance</strong><small>Back to the Spootify theme and default display options</small></span></button>
+                        <button type="button" class="library-tool" data-reset="themes"><span><strong>Delete all my themes</strong><small>Themes you made or pasted in, and their pictures</small></span></button>
+                        <button type="button" class="library-tool" data-reset="settings"><span><strong>Reset all settings</strong><small>Playback, sound, appearance and General back to the start</small></span></button>
+                        <button type="button" class="library-tool danger" data-reset="library"><span><strong>Reset library</strong><small>Deletes every playlist, song and stat. Settings and themes stay</small></span></button>
+                    </div>
+                    <span class="settings-hint">Each one asks first, and you have to tap its button 15 times. The DJ and the equaliser still have their own "Reset to defaults" buttons for the knobs.</span>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">Phone</label>
+                    <div class="settings-toggle-row settings-toggle-row-first">
+                        <label for="pref-vibration">Vibration</label>
+                        <input type="checkbox" id="pref-vibration" class="settings-switch">
+                    </div>
+                    <span class="settings-hint">Little taps when you like, queue or drag songs.</span>
+                </div>
+              </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Theme editor (docked, no scrim, so the app behind shows the live preview) -->
+    <div id="theme-editor" class="theme-editor" hidden>
+        <div class="theme-editor-head">
+            <h2 id="theme-editor-title">New theme</h2>
+            <span class="te-head-tools">
+                <button type="button" id="te-undo-btn" class="te-icon-btn" title="Undo" aria-label="Undo" disabled><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button>
+                <button type="button" id="te-redo-btn" class="te-icon-btn" title="Redo" aria-label="Redo" disabled><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></button>
+                <button type="button" id="te-close-btn" class="settings-close-btn" aria-label="Close">
+                    <svg viewBox="0 0 24 24" width="22" height="22"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                </button>
+            </span>
+        </div>
+        <div class="theme-editor-body">
+            <div class="input-group"><label for="te-name">Name</label><input type="text" id="te-name" maxlength="32" autocomplete="off"></div>
+            <div class="te-row" id="te-base-row"><span>Start from</span><select id="te-base" class="settings-select te-select"></select></div>
+
+            <details class="te-section" data-sec="bg" open>
+                <summary>Background</summary>
+                <div class="te-row"><span>Mode</span>
+                    <div class="segmented" id="te-mode"><button type="button" data-value="dark">Dark</button><button type="button" data-value="light">Light</button></div>
+                </div>
+                <div class="te-stack"><span>Style</span>
+                    <div class="segmented te-style" id="te-style">
+                        <button type="button" data-value="classic">Classic</button><button type="button" data-value="linear">Gradient</button><button type="button" data-value="glow">Glow</button><button type="button" data-value="aurora">Aurora</button><button type="button" data-value="plain">Plain</button>
+                    </div>
+                </div>
+                <div class="te-row" id="te-colors-row"><span>Colours</span><div class="te-color-list" id="te-colors"></div></div>
+                <div class="te-row" id="te-grad-row"><span>Shape</span>
+                    <div class="segmented" id="te-grad"><button type="button" data-value="linear">Linear</button><button type="button" data-value="radial">Radial</button><button type="button" data-value="conic">Conic</button></div>
+                </div>
+                <div class="te-row" id="te-angle-row"><span>Angle</span><input type="range" id="te-angle" class="settings-slider" min="0" max="360" step="5"></div>
+                <div class="te-row"><span>Base colour</span><input type="color" id="te-bg" aria-label="Base colour"></div>
+            </details>
+
+            <details class="te-section" data-sec="dots">
+                <summary>Colour dots <em class="te-badge" id="te-dots-count"></em></summary>
+                <div class="te-stage" id="te-stage" title="Tap to add a dot, drag a dot to move it">
+                    <div class="theme-layer te-stage-layer" id="te-stage-layer"></div>
+                    <div class="te-handles" id="te-handles"></div>
+                </div>
+                <p class="te-hint">Tap the box to drop a blurry colour dot, drag one to move it, tap one to change it.</p>
+                <div class="te-dot-panel" id="te-dot-panel" hidden>
+                    <div class="te-row"><span>This dot</span><span class="te-inline"><input type="color" id="te-dot-color" aria-label="Dot colour"><button type="button" id="te-dot-delete" class="utility-btn danger">Remove</button></span></div>
+                    <div data-sliders="dot"></div>
+                </div>
+                <div class="te-btn-row">
+                    <button type="button" id="te-dots-scatter" class="utility-btn">Scatter my colours</button>
+                    <button type="button" id="te-dots-clear" class="utility-btn">Clear dots</button>
+                </div>
+                <div class="te-row"><span>Drift around slowly</span><input type="checkbox" id="te-animate" class="settings-switch"></div>
+                <div data-sliders="anim"></div>
+            </details>
+
+            <details class="te-section" data-sec="image">
+                <summary>Picture <em class="te-badge" id="te-image-badge"></em></summary>
+                <div class="te-image-pick">
+                    <div class="te-image-thumb" id="te-image-thumb"></div>
+                    <div class="te-image-btns">
+                        <button type="button" id="te-image-choose" class="utility-btn">Choose picture</button>
+                        <button type="button" id="te-image-art" class="utility-btn" title="The background follows whatever song is playing">Use song cover</button>
+                        <button type="button" id="te-image-remove" class="utility-btn danger">Remove</button>
+                    </div>
+                    <input type="file" id="te-image-file" accept="image/*" hidden>
+                </div>
+                <div id="te-image-opts">
+                    <div class="te-stage te-img-stage" id="te-img-stage" title="Drag to move the picture, drag a ring to move a blur spot">
+                        <div class="theme-layer te-stage-layer" id="te-img-layer"></div>
+                        <div class="te-handles" id="te-spot-handles"></div>
+                    </div>
+                    <p class="te-hint">Drag the picture to move it. Blur spots soften one part of it: add one, then drag the ring around.</p>
+                    <div class="te-btn-row"><button type="button" id="te-spot-add" class="utility-btn">+ Blur spot</button><button type="button" id="te-img-center" class="utility-btn">Re-centre picture</button></div>
+                    <div class="te-dot-panel" id="te-spot-panel" hidden>
+                        <div class="te-row"><span>This blur spot</span><button type="button" id="te-spot-delete" class="utility-btn danger">Remove</button></div>
+                        <div data-sliders="spot"></div>
+                    </div>
+                    <div class="te-row"><span>Fit</span>
+                        <div class="segmented" id="te-image-fit"><button type="button" data-value="cover">Fill</button><button type="button" data-value="contain">Fit</button><button type="button" data-value="tile">Tile</button></div>
+                    </div>
+                    <div data-sliders="image"></div>
+                    <button type="button" id="te-image-colors" class="utility-btn te-wide-btn">Match colours to the picture</button>
+                </div>
+            </details>
+
+            <details class="te-section" data-sec="fx">
+                <summary>Effects</summary>
+                <div data-sliders="fx"></div>
+            </details>
+
+            <details class="te-section" data-sec="panels">
+                <summary>Panels</summary>
+                <div class="te-row" id="te-glass-row"><span>See-through panels</span><input type="checkbox" id="te-glass" class="settings-switch"></div>
+                <div data-sliders="panels"></div>
+                <p class="te-hint" id="te-panels-hint"></p>
+            </details>
+
+            <details class="te-section" data-sec="text">
+                <summary>Accent &amp; text</summary>
+                <div class="te-row"><span>Accent</span>
+                    <div class="te-inline"><input type="color" id="te-accent" aria-label="Accent"><label class="te-inline-check"><input type="checkbox" id="te-accent2-on"> Blend into</label><input type="color" id="te-accent2" aria-label="Second accent"></div>
+                </div>
+                <div class="te-row"><span>Text colour</span>
+                    <div class="te-inline"><label class="te-inline-check"><input type="checkbox" id="te-text-on"> Custom</label><input type="color" id="te-text" aria-label="Text colour"></div>
+                </div>
+                <p class="te-hint" id="te-text-hint" hidden></p>
+                <div class="te-row"><span>Font</span><select id="te-font" class="settings-select te-select"></select></div>
+            </details>
+
+            <details class="te-section" data-sec="elements">
+                <summary>Elements <em class="te-badge" id="te-el-count"></em></summary>
+                <p class="te-hint">Restyle one part of the app at a time: add it here, then change it in its own box.</p>
+                <select id="te-el-add" class="settings-select te-el-add" aria-label="Add an element"></select>
+                <div id="te-el-list" class="te-el-list"></div>
+            </details>
+
+            <div class="te-btn-row te-tools">
+                <button type="button" id="te-random-btn" class="utility-btn">
+                    <svg viewBox="0 0 24 24" width="15" height="15"><path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm2.5 3a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm9 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm-4.5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3ZM7.5 15a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm9 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z" fill="currentColor"/></svg>
+                    Surprise me
+                </button>
+                <button type="button" id="te-code-btn" class="utility-btn" title="Copy a code you can send to someone (pictures stay on this device)">Copy code</button>
+                <button type="button" id="te-dup-btn" class="utility-btn">Duplicate</button>
+            </div>
+        </div>
+        <div class="theme-editor-actions">
+            <button type="button" id="te-delete-btn" class="te-delete-btn">Delete</button>
+            <span class="yt-actions-spacer"></span>
+            <button type="button" id="te-cancel-btn">Cancel</button>
+            <button type="button" id="te-save-btn" class="te-save-btn">Save theme</button>
+        </div>
+    </div>
+
+    <!-- Artist page overlay -->
+    <div id="artist-overlay" class="settings-overlay" style="display:none;">
+        <div class="settings-panel stats-panel artist-panel">
+            <div class="settings-header">
+                <h2>Artist</h2>
+                <button id="artist-close-btn" class="settings-close-btn" aria-label="Close">
+                    <svg viewBox="0 0 24 24" width="24" height="24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                </button>
+            </div>
+            <div class="artist-hero">
+                <img id="artist-hero-art" src="" alt="">
+                <div class="artist-hero-text">
+                    <h1 id="artist-name">Artist</h1>
+                    <div class="artist-meta" id="artist-meta"></div>
+                    <div class="artist-actions">
+                        <button type="button" id="artist-play-btn" class="play-all-btn artist-play" aria-label="Play all"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M8 5v14l11-7-11-7Z" fill="currentColor"/></svg></button>
+                        <button type="button" id="artist-shuffle-btn" class="utility-btn">Shuffle</button>
+                    </div>
+                </div>
+            </div>
+            <div class="stats-summary">
+                <div class="stats-summary-item"><strong id="artist-total-length">0 min</strong><span>Of music</span></div>
+                <div class="stats-summary-item"><strong id="artist-total-plays">0</strong><span>Plays</span></div>
+                <div class="stats-summary-item"><strong id="artist-total-time">0s</strong><span>Listened</span></div>
+            </div>
+            <div class="stats-toolbar">
+                <div class="stats-sort">
+                    <button type="button" class="stats-sort-btn artist-sort-btn active" data-sort="plays">Most plays</button>
+                    <button type="button" class="stats-sort-btn artist-sort-btn" data-sort="time">Most time</button>
+                    <button type="button" class="stats-sort-btn artist-sort-btn" data-sort="title">A&ndash;Z</button>
+                </div>
+            </div>
+            <div id="artist-list" class="stats-list"></div>
+            <p class="stats-hint">Songs from every playlist, each shown once.</p>
+        </div>
+    </div>
+
+    <!-- Audio trimmer overlay -->
+    <div id="trim-overlay" class="settings-overlay" style="display:none;">
+        <div class="settings-panel trim-panel">
+            <div class="settings-header">
+                <h2>Trim audio</h2>
+                <button id="trim-close-btn" class="settings-close-btn" aria-label="Close">
+                    <svg viewBox="0 0 24 24" width="24" height="24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                </button>
+            </div>
+            <div class="trim-body">
+                <div class="trim-song"><strong id="trim-title">Song</strong><span id="trim-artist">Artist</span></div>
+                <div class="trim-wave-wrap" id="trim-wave-wrap">
+                    <canvas id="trim-canvas"></canvas>
+                    <div class="trim-window" id="trim-window">
+                        <div class="trim-handle trim-handle-left" id="trim-handle-left"><span></span></div>
+                        <div class="trim-handle trim-handle-right" id="trim-handle-right"><span></span></div>
+                    </div>
+                    <div class="trim-playhead" id="trim-playhead" style="display:none;"></div>
+                </div>
+                <div class="trim-times">
+                    <div class="trim-time">
+                        <label>Start</label>
+                        <div class="trim-time-ctrl"><button type="button" class="trim-nudge" data-edge="start" data-delta="-0.1" aria-label="Start earlier">&minus;</button><span id="trim-start">0:00.0</span><button type="button" class="trim-nudge" data-edge="start" data-delta="0.1" aria-label="Start later">+</button></div>
+                    </div>
+                    <div class="trim-time trim-time-mid"><label>Keeps</label><strong id="trim-length">0:00.0</strong></div>
+                    <div class="trim-time">
+                        <label>End</label>
+                        <div class="trim-time-ctrl"><button type="button" class="trim-nudge" data-edge="end" data-delta="-0.1" aria-label="End earlier">&minus;</button><span id="trim-end">0:00.0</span><button type="button" class="trim-nudge" data-edge="end" data-delta="0.1" aria-label="End later">+</button></div>
+                    </div>
+                </div>
+                <div class="trim-options">
+                    <button type="button" id="trim-preview-btn" class="utility-btn">Preview</button>
+                    <button type="button" id="trim-reset-btn" class="utility-btn" disabled>Reset</button>
+                    <label class="trim-keep"><input type="checkbox" id="trim-keep-original"> Keep original, add trimmed copy</label>
+                </div>
+                <div id="trim-progress" class="yt-progress" style="display:none;">
+                    <div class="yt-progress-bar"><div id="trim-progress-fill"></div></div>
+                </div>
+                <div id="trim-status" class="yt-status"></div>
+                <div class="modal-actions">
+                    <button type="button" id="trim-cancel-btn">Cancel</button>
+                    <button type="button" id="trim-save-btn" class="trim-save-btn" disabled>Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cover picker: choose the part of a picture that becomes a song's cover -->
+    <div id="crop-overlay" class="settings-overlay crop-overlay" style="display:none;">
+        <div class="settings-panel crop-panel">
+            <div class="settings-header">
+                <h2 id="crop-title">Choose the cover</h2>
+                <button id="crop-close-btn" class="settings-close-btn" aria-label="Close">
+                    <svg viewBox="0 0 24 24" width="24" height="24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                </button>
+            </div>
+            <div class="crop-body">
+                <div class="crop-stage" id="crop-stage">
+                    <img id="crop-img" alt="" draggable="false">
+                    <div class="crop-window" aria-hidden="true"></div>
+                </div>
+                <div class="crop-zoom-row">
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="2" fill="none"/><path d="m16 16 4.5 4.5M8 11h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    <input type="range" id="crop-zoom" class="settings-slider" min="0" max="100" step="1" value="0" aria-label="Zoom">
+                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="2" fill="none"/><path d="m16 16 4.5 4.5M8 11h6M11 8v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                </div>
+                <p class="te-hint crop-hint">Drag the picture to move it. Pinch, scroll or use the slider to zoom in. What's inside the square becomes the cover.</p>
+                <div id="crop-status" class="yt-status"></div>
+                <div class="modal-actions">
+                    <button type="button" id="crop-reset-btn" class="yt-link-btn">Reset</button>
+                    <span class="yt-actions-spacer"></span>
+                    <button type="button" id="crop-cancel-btn">Cancel</button>
+                    <button type="button" id="crop-save-btn" class="crop-save-btn">Use this</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recently deleted -->
+    <!-- Storage (Settings → General → Library) -->
+    <div id="storage-overlay" class="settings-overlay" style="display:none;">
+        <div class="settings-panel stats-panel storage-panel">
+            <div class="settings-header">
+                <h2>Storage</h2>
+                <span class="settings-header-spacer"></span>
+                <button id="storage-close-btn" class="settings-close-btn" aria-label="Close">
+                    <svg viewBox="0 0 24 24" width="24" height="24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                </button>
+            </div>
+            <div id="storage-body" class="storage-body"></div>
+        </div>
+    </div>
+    <!-- One song: file, plays, playlists (song menu → Song info) -->
+    <div id="info-overlay" class="settings-overlay" style="display:none;">
+        <div class="settings-panel stats-panel info-panel">
+            <div class="settings-header">
+                <h2>Song info</h2>
+                <span class="settings-header-spacer"></span>
+                <button id="info-close-btn" class="settings-close-btn" aria-label="Close">
+                    <svg viewBox="0 0 24 24" width="24" height="24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                </button>
+            </div>
+            <div id="info-body" class="info-body"></div>
+        </div>
+    </div>
+    <div id="bin-overlay" class="settings-overlay" style="display:none;">
+        <div class="settings-panel stats-panel bin-panel">
+            <div class="settings-header">
+                <h2>Recently deleted</h2>
+                <span class="settings-header-spacer"></span>
+                <button type="button" id="bin-empty-btn" class="utility-btn danger" hidden>Empty</button>
+                <button id="bin-close-btn" class="settings-close-btn" aria-label="Close">
+                    <svg viewBox="0 0 24 24" width="24" height="24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                </button>
+            </div>
+            <p class="panel-intro">Songs you remove and playlists you delete wait here for 30 days, then they're gone for good.</p>
+            <div id="bin-list" class="stats-list"></div>
+        </div>
+    </div>
+
+    <!-- Duplicate finder -->
+    <div id="dup-overlay" class="settings-overlay" style="display:none;">
+        <div class="settings-panel stats-panel dup-panel">
+            <div class="settings-header">
+                <h2>Duplicates</h2>
+                <span class="settings-header-spacer"></span>
+                <button type="button" id="dup-fix-all" class="utility-btn" hidden>Fix all</button>
+                <button id="dup-close-btn" class="settings-close-btn" aria-label="Close">
+                    <svg viewBox="0 0 24 24" width="24" height="24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                </button>
+            </div>
+            <p class="panel-intro"><strong id="dup-summary"></strong> Fixing keeps one audio file for the song (plays, likes and history are combined) and moves extra copies inside a playlist to Recently deleted.</p>
+            <div id="dup-list" class="stats-list"></div>
+        </div>
+    </div>
+
+    <!-- Spootify Wrapped -->
+    <div id="wrapped-overlay" class="wrapped-overlay" hidden>
+        <div class="wrapped-stage" id="wrapped-stage">
+            <div class="wrapped-progress" id="wrapped-progress"></div>
+            <div class="wrapped-top">
+                <div class="segmented wrapped-period" id="wrapped-period"></div>
+                <button type="button" id="wrapped-close-btn" class="wrapped-close" aria-label="Close">
+                    <svg viewBox="0 0 24 24" width="24" height="24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg>
+                </button>
+            </div>
+            <div class="wrapped-card" id="wrapped-card"></div>
+            <div class="wrapped-hint">Tap to continue &middot; tap the left side to go back &middot; hold to pause</div>
+        </div>
+    </div>
+
+    <!-- DJ mode (decks, mixer and pads are built by dj.js) -->
+    <div id="dj-overlay" class="dj-overlay" hidden>
+        <div class="dj-panel">
+            <div class="dj-header">
+                <div class="dj-title">
+                    <h2>DJ</h2>
+                    <span>Load a song on each deck, then mix them with the crossfader</span>
+                </div>
+                <span class="dj-header-tools">
+                <button type="button" id="dj-reset-btn" class="utility-btn" title="Put every knob, slider and effect back to its default (songs and hot cues stay)">Reset to defaults</button>
+                <button id="dj-close-btn" class="settings-close-btn" aria-label="Close DJ">
+                    <svg viewBox="0 0 24 24" width="24" height="24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                </button>
+                </span>
+            </div>
+            <div class="dj-body" id="dj-body"></div>
+        </div>
+        <div id="dj-picker" class="dj-picker" hidden>
+            <div class="dj-picker-panel">
+                <div class="dj-picker-head">
+                    <strong id="dj-picker-title">Load to deck A</strong>
+                    <button type="button" id="dj-picker-close" class="settings-close-btn" aria-label="Close">
+                        <svg viewBox="0 0 24 24" width="22" height="22"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                    </button>
+                </div>
+                <div class="search-container dj-picker-search">
+                    <svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" fill="none"/><path d="m16 16 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    <input type="text" id="dj-picker-search" class="search-input" placeholder="Search your library..." autocomplete="off" spellcheck="false">
+                </div>
+                <div id="dj-picker-list" class="stats-list dj-picker-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-overlay" class="modal-overlay" style="display:none;">
+        <div class="modal-content">
+            <h2 id="modal-title">Form</h2>
+            <form id="modal-form">
+                <div class="input-group" id="group-1">
+                    <label for="input-1" id="label-1">Name:</label>
+                    <input type="text" id="input-1" required autocomplete="off">
+                </div>
+                <div class="input-group" id="group-2">
+                    <label for="input-2" id="label-2">Author:</label>
+                    <input type="text" id="input-2" autocomplete="off">
+                </div>
+                <div class="input-group" id="file-group-1">
+                    <label for="file-input-song" id="file-label-song">Song Files:</label>
+                    <input type="file" id="file-input-song" accept="audio/*" multiple>
+                    <span class="input-hint" id="file-hint">Pick one or more files. Title, artist and cover art are read from each file's tags.</span>
+                </div>
+                <div class="input-group" id="file-group-2">
+                    <label for="file-input-art">Cover Image:</label>
+                    <input type="file" id="file-input-art" accept="image/*">
+                </div>
+                <div id="modal-progress" class="yt-progress" style="display:none;">
+                    <div class="yt-progress-bar"><div id="modal-progress-fill"></div></div>
+                    <span id="modal-progress-text"></span>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="modal-cancel-btn">Cancel</button>
+                    <button type="submit" id="modal-submit-btn">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- Import: search YouTube or paste a link; what you pick collects in the import list,
+         which downloads in the background (you can close this and keep using the app). -->
+    <div id="yt-overlay" class="modal-overlay" style="display:none;">
+        <div class="modal-content yt-modal">
+            <div class="yt-head">
+                <h2>Import</h2>
+                <button type="button" id="yt-close-x" class="settings-close-btn" aria-label="Close">
+                    <svg viewBox="0 0 24 24" width="22" height="22"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                </button>
+            </div>
+            <div class="segmented yt-tabs" id="yt-tabs" role="tablist">
+                <button type="button" data-value="search" class="active" role="tab">Search YouTube</button>
+                <button type="button" data-value="link" role="tab">Paste a link</button>
+            </div>
+            <div id="yt-setup" class="yt-setup" style="display:none;">
+                <p id="yt-setup-text"></p>
+                <button type="button" id="yt-setup-btn" class="accent-btn yt-setup-btn">Set up downloader</button>
+            </div>
+
+            <div id="yt-search-pane" class="yt-pane yt-search-pane">
+                <form id="yt-search-form" class="yt-search-row" autocomplete="off">
+                    <div class="search-container yt-search-box">
+                        <svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" fill="none"/><path d="m16 16 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                        <input type="text" id="yt-q" class="search-input" placeholder="Search songs, artists, albums..." autocomplete="off" spellcheck="false" enterkeyhint="search" aria-label="Search YouTube">
+                        <button type="button" id="yt-q-clear" class="search-clear" style="display:none" aria-label="Clear search">&times;</button>
+                    </div>
+                    <button type="submit" id="yt-search-btn" class="yt-fetch-btn">Search</button>
+                </form>
+                <div id="yt-results" class="yt-results" aria-live="polite"></div>
+            </div>
+
+            <div id="yt-link-pane" class="yt-pane yt-link-pane" hidden>
+                <p class="yt-subtitle">Paste a YouTube link: a single video or a whole playlist (or any site yt-dlp supports). It goes into the import list below.</p>
+                <div class="input-group">
+                    <label for="yt-url">Link:</label>
+                    <div class="yt-url-row">
+                        <input type="url" id="yt-url" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off" inputmode="url" spellcheck="false">
+                        <button type="button" id="yt-fetch-btn" class="yt-fetch-btn">Fetch</button>
+                    </div>
+                </div>
+                <div id="yt-mode-row" class="yt-mode-row" style="display:none;">
+                    <span>This link is part of a playlist.</span>
+                    <div class="segmented" id="yt-mode">
+                        <button type="button" data-value="single" class="active">This song</button>
+                        <button type="button" data-value="playlist">Whole playlist</button>
+                    </div>
+                </div>
+                <div id="yt-pl-preview" class="yt-pl-preview" style="display:none;">
+                    <div class="yt-pl-head">
+                        <div class="yt-pl-head-text"><strong id="yt-pl-title">Playlist</strong><span id="yt-pl-count"></span></div>
+                        <label class="yt-pl-all"><input type="checkbox" id="yt-pl-all" checked> All</label>
+                    </div>
+                    <div class="yt-pl-list" id="yt-pl-list"></div>
+                    <button type="button" id="yt-pl-add" class="accent-btn yt-pl-add">Add to the import list</button>
+                </div>
+            </div>
+
+            <div id="yt-queue" class="yt-queue" hidden>
+                <div class="yt-queue-head">
+                    <button type="button" id="yt-queue-toggle" class="yt-queue-title" aria-expanded="true">
+                        <strong>About to import</strong><em id="yt-queue-count" class="te-badge"></em>
+                        <svg viewBox="0 0 24 24" width="16" height="16"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+                    </button>
+                    <button type="button" id="yt-queue-clear" class="yt-link-btn">Clear</button>
+                </div>
+                <div class="yt-queue-opts">
+                    <label class="te-inline-check" title="Strip things like (Official Video) and [Lyrics], and split &quot;Artist - Title&quot;"><input type="checkbox" id="yt-tidy"> Tidy titles</label>
+                    <label class="te-inline-check" title="Crop the video thumbnail to a square cover, without black bars"><input type="checkbox" id="yt-square"> Square covers</label>
+                </div>
+                <div id="yt-queue-list" class="yt-queue-list"></div>
+                <div class="yt-queue-foot">
+                    <select id="yt-dest" class="settings-select yt-dest" aria-label="Add to playlist"></select>
+                    <input type="text" id="yt-dest-name" class="yt-dest-name" placeholder="New playlist name" autocomplete="off" maxlength="60" aria-label="New playlist name">
+                    <button type="button" id="yt-import-btn" class="yt-download-btn yt-import-btn">Import</button>
+                </div>
+            </div>
+
+            <div id="yt-status" class="yt-status"></div>
+            <div class="modal-actions yt-actions">
+                <button type="button" id="yt-update-btn" class="yt-link-btn">Update yt-dlp</button>
+                <span class="yt-actions-spacer"></span>
+                <button type="button" id="yt-cancel-btn">Close</button>
+            </div>
+        </div>
+    </div>
+    <!-- Shown while the import list downloads with the Import screen closed; tap to reopen it -->
+    <button type="button" id="import-pill" class="import-pill" hidden aria-label="Show imports">
+        <span class="import-pill-ring"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" class="ring-bg"/><circle cx="18" cy="18" r="15" class="ring-fg" id="import-pill-arc"/></svg><svg class="import-pill-icon" viewBox="0 0 24 24"><path d="M12 3v11m0 0-4.5-4.5M12 14l4.5-4.5M5 19h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
+        <span class="import-pill-text"><strong id="import-pill-title">Importing</strong><span id="import-pill-sub"></span></span>
+    </button>
+    <div id="confirm-overlay" class="modal-overlay" style="display:none;">
+        <div class="modal-content confirm-modal">
+            <h2 id="confirm-title">Delete playlist?</h2>
+            <p id="confirm-message">This cannot be undone.</p>
+            <div class="modal-actions">
+                <button type="button" id="confirm-cancel-btn">Cancel</button>
+                <button type="button" id="confirm-delete-btn">Delete</button>
+            </div>
+        </div>
+    </div>
+    <!-- Export: options, then progress while the files are written -->
+    <div id="sync-overlay" class="modal-overlay" style="display:none;">
+        <div class="modal-content export-modal sync-modal">
+            <h2>Sync devices</h2>
+            <p class="export-lead">Swap new songs, listening time, likes, ratings, renames, settings and themes with your phone or PC on the same Wi-Fi. Only what changed since you last synced is sent, and you pick every bit.</p>
+            <div id="sync-host" hidden>
+                <div class="settings-toggle-row">
+                    <label for="sync-host-toggle">Let a phone connect to this PC</label>
+                    <input type="checkbox" id="sync-host-toggle" class="settings-switch">
+                </div>
+                <div id="sync-host-info" class="sync-host-info" hidden></div>
+            </div>
+            <div id="sync-connect" class="sync-connect">
+                <input type="text" id="sync-addr" class="prompt-input" placeholder="PC address, e.g. 192.168.1.20" autocomplete="off" inputmode="decimal">
+                <input type="text" id="sync-code" class="prompt-input" placeholder="6-digit code" autocomplete="off" inputmode="numeric" maxlength="6">
+            </div>
+            <div id="sync-review" class="sync-review" hidden></div>
+            <p id="sync-summary" class="export-summary"></p>
+            <div id="sync-progress" class="yt-progress" style="display:none;">
+                <div class="yt-progress-bar"><div id="sync-progress-fill"></div></div>
+                <span id="sync-progress-text"></span>
+            </div>
+            <div class="modal-actions">
+                <button type="button" id="sync-cancel-btn">Close</button>
+                <button type="button" id="sync-go-btn" class="accent-action">Connect</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="export-overlay" class="modal-overlay" style="display:none;">
+        <div class="modal-content export-modal">
+            <h2>Export Library</h2>
+            <p class="export-lead">Pick what to save. Everything except the audio and covers goes in one small data file; songs and covers go in separate media files.</p>
+            <div id="export-options">
+                <div class="settings-toggle-row">
+                    <label for="export-songs">Songs, playlists and liked songs</label>
+                    <input type="checkbox" id="export-songs" class="settings-switch" checked>
+                </div>
+                <div class="settings-toggle-row">
+                    <label for="export-covers">Covers and pictures</label>
+                    <input type="checkbox" id="export-covers" class="settings-switch" checked>
+                </div>
+                <div class="settings-toggle-row">
+                    <label for="export-stats">Listening time, history and ratings</label>
+                    <input type="checkbox" id="export-stats" class="settings-switch" checked>
+                </div>
+                <div class="settings-toggle-row">
+                    <label for="export-settings">Settings</label>
+                    <input type="checkbox" id="export-settings" class="settings-switch" checked>
+                </div>
+                <div class="settings-toggle-row">
+                    <label for="export-themes">Custom themes</label>
+                    <input type="checkbox" id="export-themes" class="settings-switch" checked>
+                </div>
+                <div class="settings-choice-row stacked" id="export-size-row">
+                    <span>Split into files of up to</span>
+                    <div class="segmented" id="export-size">
+                        <button type="button" data-value="50">50 MB</button>
+                        <button type="button" data-value="100">100 MB</button>
+                        <button type="button" data-value="150">150 MB</button>
+                        <button type="button" data-value="250">250 MB</button>
+                        <button type="button" data-value="400">400 MB</button>
+                        <button type="button" data-value="450">450 MB</button>
+                        <button type="button" data-value="0">No split</button>
+                    </div>
+                </div>
+            </div>
+            <p id="export-summary" class="export-summary"></p>
+            <div id="export-progress" class="yt-progress" style="display:none;">
+                <div class="yt-progress-bar"><div id="export-progress-fill"></div></div>
+                <span id="export-progress-text"></span>
+            </div>
+            <div class="modal-actions">
+                <button type="button" id="export-cancel-btn">Cancel</button>
+                <button type="button" id="export-go-btn" class="accent-action">Export</button>
+            </div>
+        </div>
+    </div>
+    <div id="import-choice-overlay" class="modal-overlay" style="display:none;">
+        <div class="modal-content confirm-modal">
+            <h2>Import Library</h2>
+            <p>How should the imported data be handled?</p>
+            <div class="modal-actions import-choice-actions">
+                <button type="button" id="import-cancel-btn">Cancel</button>
+                <button type="button" id="import-append-btn" class="accent-action">Merge</button>
+                <button type="button" id="import-replace-btn" class="danger-action">Replace</button>
+            </div>
+        </div>
+    </div>
+    <!-- Where dropped / picked files should go when there's no open playlist -->
+    <div id="pick-playlist-overlay" class="modal-overlay" style="display:none;">
+        <div class="modal-content confirm-modal">
+            <h2 id="pick-title">Add songs</h2>
+            <div class="input-group"><label for="pick-select">Add to:</label><select id="pick-select" class="settings-select"></select></div>
+            <div class="input-group" id="pick-new-group"><label for="pick-new-name">New playlist name:</label><input type="text" id="pick-new-name" autocomplete="off"></div>
+            <div class="modal-actions">
+                <button type="button" id="pick-cancel-btn">Cancel</button>
+                <button type="button" id="pick-ok-btn" class="accent-action">Add</button>
+            </div>
+        </div>
+    </div>
+    <!-- Add songs to a playlist by ticking them in another playlist -->
+    <div id="addfrom-overlay" class="settings-overlay" style="display:none;">
+        <div class="settings-panel stats-panel addfrom-panel">
+            <div class="settings-header">
+                <button type="button" id="addfrom-back-btn" class="settings-close-btn addfrom-back" aria-label="Back to playlists" hidden>
+                    <svg viewBox="0 0 24 24" width="24" height="24"><path d="m15 18-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+                </button>
+                <h2 id="addfrom-title">Add songs</h2>
+                <span class="settings-header-spacer"></span>
+                <button type="button" id="addfrom-all-btn" class="utility-btn" hidden>Select all</button>
+                <button id="addfrom-close-btn" class="settings-close-btn" aria-label="Close">
+                    <svg viewBox="0 0 24 24" width="24" height="24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                </button>
+            </div>
+            <p class="panel-intro" id="addfrom-intro"></p>
+            <div class="addfrom-search" id="addfrom-search-wrap" hidden><input type="text" id="addfrom-search" class="search-input" placeholder="Filter songs..." autocomplete="off" spellcheck="false"></div>
+            <div id="addfrom-list" class="stats-list"></div>
+            <div class="addfrom-foot" id="addfrom-foot" hidden>
+                <span id="addfrom-count">Nothing selected</span>
+                <button type="button" id="addfrom-add-btn" class="accent-action addfrom-add" disabled>Add</button>
+            </div>
+        </div>
+    </div>
+    <!-- Quiet mode: the background and the bare controls, nothing else drawn -->
+    <div id="quiet-overlay" class="quiet-overlay" hidden>
+        <button type="button" id="quiet-back-btn" class="quiet-back" aria-label="Leave quiet mode">
+            <svg viewBox="0 0 24 24" width="24" height="24"><path d="m15 18-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+        </button>
+        <div class="quiet-card">
+            <img id="quiet-art" class="quiet-art" src="" alt="">
+            <div class="quiet-text">
+                <strong id="quiet-title">Nothing playing</strong>
+                <span id="quiet-artist"></span>
+            </div>
+            <div class="quiet-progress" id="quiet-progress" role="slider" aria-label="Seek" tabindex="0"><div class="quiet-progress-fill" id="quiet-progress-fill"></div></div>
+            <div class="quiet-times"><span id="quiet-time">0:00</span><span id="quiet-total">0:00</span></div>
+            <div class="quiet-controls">
+                <button type="button" id="quiet-prev-btn" aria-label="Previous"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 5h2v14H6V5Zm13 14L9 12l10-7v14Z" fill="currentColor"/></svg></button>
+                <button type="button" id="quiet-play-btn" class="quiet-play" aria-label="Play"></button>
+                <button type="button" id="quiet-next-btn" aria-label="Next"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M16 5h2v14h-2V5ZM5 19l10-7L5 5v14Z" fill="currentColor"/></svg></button>
+            </div>
+        </div>
+    </div>
+    <div id="drop-overlay" class="drop-overlay" hidden>
+        <div class="drop-box">
+            <svg viewBox="0 0 24 24" width="44" height="44"><path d="M9 18V5l12-2v13" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="6" cy="18" r="3" fill="currentColor"/><circle cx="18" cy="16" r="3" fill="currentColor"/></svg>
+            <strong id="drop-title">Drop to add songs</strong>
+            <span id="drop-sub">Title, artist and cover art come from the files' tags</span>
+        </div>
+    </div>
+    <script src="tags.js"></script>
+    <script src="app.v2.js"></script>
+    <script src="sync.js"></script>
+    <script src="dj.js"></script>
+</body>
+</html>

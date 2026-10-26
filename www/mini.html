@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Spootify mini player</title>
+<!-- Desktop only: the always-on-top mini player window opened from the player bar.
+     It has no audio of its own; app.v2.js sends it state and it sends back commands
+     through window.electronAPI.mini (see main.js MINI PLAYER). -->
+<style>
+    :root { --bg: #121212; --surface: #1c1c1c; --text-1: #fff; --text-3: #9a9a9a; --accent: #1db954; --accent-grad: #1db954; --on-accent: #000; --fg-rgb: 255, 255, 255; }
+    * { box-sizing: border-box; margin: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: var(--font, 'Segoe UI', sans-serif); color: var(--text-1); background: var(--bg); -webkit-user-select: none; user-select: none; -webkit-app-region: drag; display: flex; flex-direction: column; }
+    .tint { position: fixed; inset: 0; background: radial-gradient(120% 140% at 0% 50%, var(--tint, transparent), transparent 70%); opacity: 0.55; pointer-events: none; transition: background 0.6s; }
+    .row { position: relative; flex: 1; display: flex; align-items: center; gap: 12px; padding: 10px 10px 6px 10px; min-height: 0; }
+    .art { width: 76px; height: 76px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: rgba(var(--fg-rgb), 0.08); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4); cursor: pointer; -webkit-app-region: no-drag; }
+    .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    .text strong, .text span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .text strong { font-size: 14px; font-weight: 700; }
+    .text span { font-size: 12px; color: var(--text-3); margin-top: 1px; }
+    .controls { display: flex; align-items: center; gap: 4px; -webkit-app-region: no-drag; }
+    button { -webkit-app-region: no-drag; border: none; background: none; color: var(--text-1); cursor: pointer; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 0; }
+    button svg { width: 18px; height: 18px; fill: currentColor; }
+    .ctl { width: 32px; height: 32px; opacity: 0.85; }
+    .ctl:hover { opacity: 1; background: rgba(var(--fg-rgb), 0.1); }
+    .play { width: 36px; height: 36px; background: var(--accent-grad); color: var(--on-accent); }
+    .play:hover { filter: brightness(1.1); }
+    .like.on { color: var(--accent); opacity: 1; }
+    .side { position: absolute; top: 6px; right: 6px; display: flex; gap: 2px; }
+    .side button { width: 24px; height: 24px; opacity: 0.55; }
+    .side button:hover { opacity: 1; background: rgba(var(--fg-rgb), 0.1); }
+    .side svg { width: 14px; height: 14px; }
+    .time { margin-left: auto; font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; padding-right: 2px; }
+    .bar { position: relative; height: 14px; margin: 0 10px 4px; cursor: pointer; -webkit-app-region: no-drag; display: flex; align-items: center; }
+    .bar::before { content: ""; position: absolute; left: 0; right: 0; height: 3px; border-radius: 2px; background: rgba(var(--fg-rgb), 0.15); }
+    .fill { position: relative; height: 3px; border-radius: 2px; background: var(--accent); width: 0; }
+    .bar:hover::before, .bar:hover .fill { height: 5px; }
+    .empty .controls, .empty .bar, .empty .time { opacity: 0.4; pointer-events: none; }
+</style>
+</head>
+<body class="empty">
+<div class="tint" id="tint"></div>
+<div class="row">
+    <img class="art" id="art" alt="" title="Open Spootify">
+    <div class="info">
+        <div class="text"><strong id="title">Nothing playing</strong><span id="artist">Play something in Spootify</span></div>
+        <div class="controls">
+            <button class="ctl" data-cmd="prev" aria-label="Previous" title="Previous"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6V6Zm3.5 6 8.5 6V6l-8.5 6Z"/></svg></button>
+            <button class="play" id="play" data-cmd="play-pause" aria-label="Play"></button>
+            <button class="ctl" data-cmd="next" aria-label="Next" title="Next"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2V6ZM6 18l8.5-6L6 6v12Z"/></svg></button>
+            <button class="ctl like" id="like" data-cmd="like" aria-label="Like" title="Save to Liked Songs"></button>
+            <span class="time" id="time"></span>
+        </div>
+    </div>
+    <div class="side">
+        <button data-cmd="show-main" aria-label="Open Spootify" title="Open Spootify"><svg viewBox="0 0 24 24"><path d="M14 3h7v7h-2V6.4l-8.3 8.3-1.4-1.4L17.6 5H14V3ZM5 5h6v2H5v12h12v-6h2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg></button>
+        <button data-cmd="close" aria-label="Close mini player" title="Close"><svg viewBox="0 0 24 24"><path d="M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7l-1.4-1.4L9.2 12 2.9 5.7l1.4-1.4 6.3 6.3 6.3-6.3 1.4 1.4Z"/></svg></button>
+    </div>
+</div>
+<div class="bar" id="bar"><div class="fill" id="fill"></div></div>
+<script>
+(() => {
+    const api = window.electronAPI && window.electronAPI.mini;
+    if (!api) return;
+    const $ = (id) => document.getElementById(id);
+    const PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7L8 5Z"/></svg>', PAUSE = '<svg viewBox="0 0 24 24"><path d="M7 5h4v14H7V5Zm6 0h4v14h-4V5Z"/></svg>';
+    const HEART = '<svg viewBox="0 0 24 24"><path d="M12 20.5 10.6 19C5.6 14.5 2.5 11.7 2.5 8.2 2.5 5.4 4.7 3.2 7.5 3.2c1.6 0 3.2.8 4.5 2 1.3-1.2 2.9-2 4.5-2 2.8 0 5 2.2 5 5 0 3.5-3.1 6.3-8.1 10.8L12 20.5Zm0-2.7c4.5-4.1 7.5-6.8 7.5-9.6 0-1.7-1.3-3-3-3-1.3 0-2.6.9-3.1 2h-2.8c-.5-1.1-1.8-2-3.1-2-1.7 0-3 1.3-3 3 0 2.8 3 5.5 7.5 9.6Z"/></svg>';
+    const HEART_ON = '<svg viewBox="0 0 24 24"><path d="M12 20.5 10.6 19C5.6 14.5 2.5 11.7 2.5 8.2 2.5 5.4 4.7 3.2 7.5 3.2c1.6 0 3.2.8 4.5 2 1.3-1.2 2.9-2 4.5-2 2.8 0 5 2.2 5 5 0 3.5-3.1 6.3-8.1 10.8L12 20.5Z"/></svg>';
+    const fmt = (s) => { s = Math.max(0, Math.floor(s || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+    let st = null, base = 0, baseAt = 0;
+    function draw() {
+        if (!st) return;
+        const pos = st.playing ? Math.min(st.duration || 0, base + (performance.now() - baseAt) / 1000 * (st.rate || 1)) : base;
+        $("fill").style.width = st.duration ? `${(pos / st.duration) * 100}%` : "0";
+        $("time").textContent = st.duration ? `${fmt(pos)} / ${fmt(st.duration)}` : "";
+    }
+    api.on("mini:state", (s) => {
+        if (!s) return;
+        const prev = st; st = s; base = s.position || 0; baseAt = performance.now();
+        document.body.classList.toggle("empty", !s.title);
+        $("title").textContent = s.title || "Nothing playing";
+        $("artist").textContent = s.title ? (s.artist || "Unknown Artist") : "Play something in Spootify";
+        document.title = s.title ? `${s.title} · Spootify` : "Spootify mini player";
+        if (s.art && (!prev || prev.art !== s.art)) $("art").src = s.art;
+        if (!s.art) $("art").removeAttribute("src");
+        $("play").innerHTML = s.playing ? PAUSE : PLAY; $("play").setAttribute("aria-label", s.playing ? "Pause" : "Play");
+        $("like").innerHTML = s.liked ? HEART_ON : HEART; $("like").classList.toggle("on", !!s.liked);
+        const c = s.colors || {}, root = document.documentElement.style;
+        for (const [k, v] of Object.entries(c)) if (typeof v === "string" && v.length < 300) root.setProperty("--" + k, v);
+        $("tint").style.setProperty("--tint", s.tint || "transparent");
+        draw();
+    });
+    setInterval(draw, 250);
+    document.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-cmd]");
+        if (b) api.command({ type: b.dataset.cmd });
+        else if (e.target.id === "art") api.command({ type: "show-main" });
+    });
+    $("bar").addEventListener("click", (e) => {
+        const r = $("bar").getBoundingClientRect();
+        api.command({ type: "seek", fraction: Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) });
+    });
+    document.addEventListener("keydown", (e) => {
+        if (e.key === " ") { e.preventDefault(); api.command({ type: "play-pause" }); }
+        else if (e.key === "ArrowRight") api.command({ type: "next" });
+        else if (e.key === "ArrowLeft") api.command({ type: "prev" });
+        else if (e.key === "Escape") api.command({ type: "close" });
+    });
+    api.command({ type: "hello" });
+})();
+</script>
+</body>
+</html>

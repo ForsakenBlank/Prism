@@ -1,0 +1,80 @@
+apply plugin: 'com.android.application'
+
+android {
+    namespace = "com.yourname.spootify"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.yourname.spootify"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        // Release builds (GitHub Actions) set these from the tag, e.g. v1.2.3 → 1.2.3 / 10203.
+        versionCode (System.getenv("SPOOTIFY_VERSION_CODE") ?: "1").toInteger()
+        versionName System.getenv("SPOOTIFY_VERSION_NAME") ?: "1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // youtubedl-android ships a Python runtime per ABI; keep the set small.
+        ndk {
+            abiFilters "arm64-v8a", "armeabi-v7a", "x86_64"
+        }
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    // youtubedl-android executes its bundled binaries from nativeLibraryDir, which needs them extracted.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+    // The release key comes from the environment (GitHub secrets), never from the repo.
+    // Every APK has to be signed with the same key to install over the previous one.
+    signingConfigs {
+        release {
+            if (System.getenv("SPOOTIFY_KEYSTORE")) {
+                storeFile file(System.getenv("SPOOTIFY_KEYSTORE"))
+                storePassword System.getenv("SPOOTIFY_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("SPOOTIFY_KEY_ALIAS")
+                keyPassword System.getenv("SPOOTIFY_KEY_PASSWORD")
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (System.getenv("SPOOTIFY_KEYSTORE")) signingConfig signingConfigs.release
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation "androidx.media:media:1.7.0"
+    implementation "io.github.junkfood02.youtubedl-android:library:0.18.1"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

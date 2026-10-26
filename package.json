@@ -1,0 +1,26 @@
+{
+  "name": "spootify",
+  "version": "1.0.0",
+  "description": "Spootify Music Player",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build-exe": "npm run copy-web && electron-packager . Spootify --platform=win32 --arch=x64 --out=dist --overwrite --icon=build/icon.ico --ignore=\"^/android\" --ignore=\"^/scripts\" --ignore=\"^/\\.github\" --ignore=\"^/\\.idea\" --ignore=\"^/\\.vscode\" --ignore=\"^/\\.claude\"",
+    "build-linux": "npm run copy-web && electron-packager . Spootify --platform=linux --arch=x64 --out=dist --overwrite --icon=icon.png --ignore=\"^/android\" --ignore=\"^/scripts\" --ignore=\"^/\\.github\" --ignore=\"^/\\.idea\" --ignore=\"^/\\.vscode\" --ignore=\"^/\\.claude\"",
+    "copy-web": "node scripts/copy-web.js",
+    "sync-android": "npm run copy-web && npx cap sync android",
+    "open-android": "npx cap open android",
+    "build-apk": "npm run sync-android && cd android && ./gradlew assembleDebug",
+    "build-apk-win": "npm run sync-android && cd android && cmd /c \"set \"JAVA_HOME=C:\\Program Files\\Android\\Android Studio\\jbr\" && gradlew assembleDebug\""
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "electron": "44.7.0"
+  },
+  "dependencies": {
+    "@capacitor/android": "^5.0.0",
+    "@capacitor/cli": "^5.0.0",
+    "@capacitor/core": "^5.0.0",
+    "lamejs": "^1.2.1"
+  }
+}

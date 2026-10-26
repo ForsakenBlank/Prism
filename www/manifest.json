@@ -1,0 +1,17 @@
+{
+  "name": "Spootify",
+  "short_name": "Spootify",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#1DB954",
+  "description": "A sleek music player for your local tracks.",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

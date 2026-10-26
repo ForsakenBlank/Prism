@@ -1,0 +1,13 @@
+# Store text with LF line endings in the repo; Windows and Linux checkouts each get their own.
+* text=auto
+
+# Scripts that must keep one style whatever system checks them out
+*.sh text eol=lf
+android/gradlew text eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files
+*.png binary
+*.ico binary
+*.jar binary
