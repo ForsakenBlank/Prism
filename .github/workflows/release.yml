@@ -63,7 +63,8 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@v3
+      # The Android SDK comes preinstalled on GitHub's Ubuntu machines (ANDROID_HOME);
+      # Gradle downloads any platform version it's missing.
       - run: npm ci
       - name: Set the app version from the tag
         shell: bash
