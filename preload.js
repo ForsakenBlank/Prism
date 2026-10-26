@@ -31,6 +31,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return () => ipcRenderer.removeListener('update:progress', handler);
     }
   },
+  // Tray (see main.js): hide the window there or quit, and tell it what's playing.
+  tray: {
+    hide: () => ipcRenderer.send('app:hide-to-tray'),
+    quit: () => ipcRenderer.send('app:quit'),
+    setState: (state) => ipcRenderer.send('tray:state', state)
+  },
   // The theme's base colour, used as the window background on the next launch.
   setBackground: (color) => ipcRenderer.send('app:set-background', String(color || '')),
   // Mini player window (see main.js): the main window pushes state, the mini window sends commands.

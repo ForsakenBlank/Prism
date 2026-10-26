@@ -6185,6 +6185,21 @@ if (miniApi) {
     setInterval(() => { if (miniOpen) pushMiniState(); }, 5000); // keeps the position honest
 }
 
+// ── TRAY ── (desktop) The button by the logo (or under the sidebar arrow) hides the window
+// to the tray, where the music keeps playing; the tray menu shows the song that's on.
+const trayApi = window.electronAPI && window.electronAPI.tray;
+if (trayApi) {
+    for (const id of ["tray-hide-btn", "tray-hide-float"]) { const b = $(id); if (b) { b.hidden = false; b.addEventListener("click", () => trayApi.hide()); } }
+    let trayTimer = null;
+    const pushTray = () => {
+        trayTimer = null;
+        trayApi.setState({ title: currentTrack ? currentTrack.title || "Unknown" : "", artist: currentTrack ? currentTrack.artist || "" : "", playing: !!currentTrack && isAudiblyPlaying() });
+    };
+    const scheduleTray = () => { if (!trayTimer) trayTimer = setTimeout(pushTray, 150); };
+    for (const ev of ["play", "pause", "playing", "loadedmetadata", "ended", "emptied"]) onPlayer(ev, scheduleTray);
+    scheduleTray();
+}
+
 // ── QUIET MODE ──
 // Home's moon button: the theme background, a back button and a small card with the
 // cover, progress and transport, sitting between the middle and the top. It doubles as

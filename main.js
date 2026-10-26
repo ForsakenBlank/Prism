@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, screen, powerSaveBlocker } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, screen, powerSaveBlocker, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
@@ -25,7 +25,8 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
+      backgroundThrottling: false // keeps playback timing (crossfades, stats) exact while hidden in the tray
     },
     backgroundColor: /^#[0-9a-f]{6}$/i.test(saved.background || '') ? saved.background : '#121212'
   });
@@ -44,6 +45,14 @@ function createWindow() {
   win.on('resize', saveSoon);
   win.on('move', saveSoon);
   win.on('close', save);
+  // Closing goes to the tray (the music keeps playing); Quit is in the tray menu, or Ctrl+Q.
+  win.on('close', (e) => { if (!quitting && tray) { e.preventDefault(); win.hide(); } });
+  win.webContents.on('before-input-event', (e, input) => {
+    if (input.type !== 'keyDown' || !input.control || input.alt || input.shift) return;
+    const k = String(input.key).toLowerCase();
+    if (k === 'q') { e.preventDefault(); quitting = true; app.quit(); }
+    else if (k === 'w') { e.preventDefault(); hideToTray(); }
+  });
   win.on('closed', () => { if (miniWin && !miniWin.isDestroyed()) miniWin.close(); });
   // The page crashed or was killed: note why (the page logs it on its next start) and load it again.
   win.webContents.on('render-process-gone', (event, details) => {
@@ -428,7 +437,7 @@ ipcMain.handle('ytdlp:update', async () => {
 // Settings → General → App updates. Checks the latest GitHub release; installing downloads
 // this platform's build, unpacks it next to the old one, and a small script copies it over
 // the app folder once this process has quit, then starts the new version.
-const UPDATE_REPO = 'ForsakenBlank/Spootify';
+const UPDATE_REPO = 'ForsakenBlank/MusicApp';
 const UPDATE_ASSETS = { linux: 'Spootify-linux-x64.tar.gz', win32: 'Spootify-windows-x64.zip' };
 let updateInfo = null; // the last check's result, so install uses the same release
 
@@ -524,7 +533,63 @@ ipcMain.handle('update:install', async (event) => {
   return true;
 });
 
-app.whenReady().then(createWindow);
+// ══════════════════════════════════════════════
+// ── TRAY (desktop) ──
+// Closing the window hides it here and the music keeps playing. Clicking the icon opens
+// the mini player (cover, previous / play / next, like); the menu has the same controls,
+// the song that's on, and Quit. Opening the app again (e.g. from its launcher) brings the
+// window back, since only one copy runs at a time.
+// ══════════════════════════════════════════════
+let tray = null, quitting = false, trayState = { title: '', artist: '', playing: false };
+app.on('before-quit', () => { quitting = true; });
+function showMain() {
+  if (!mainWin || mainWin.isDestroyed()) { createWindow(); return; }
+  if (mainWin.isMinimized()) mainWin.restore();
+  mainWin.show(); mainWin.focus();
+}
+function hideToTray() {
+  if (!mainWin || mainWin.isDestroyed()) return;
+  if (tray) mainWin.hide(); else mainWin.minimize();
+}
+function trayCommand(type) { if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('mini:command', { type }); }
+function buildTrayMenu() {
+  if (!tray) return;
+  const t = trayState, song = t.title ? `${t.title}${t.artist ? ' — ' + t.artist : ''}` : 'Nothing playing';
+  tray.setToolTip(t.title ? `Spootify · ${song}` : 'Spootify');
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: song.length > 60 ? song.slice(0, 57) + '…' : song, enabled: false },
+    { label: t.playing ? 'Pause' : 'Play', enabled: !!t.title, click: () => trayCommand('play-pause') },
+    { label: 'Next', enabled: !!t.title, click: () => trayCommand('next') },
+    { label: 'Previous', enabled: !!t.title, click: () => trayCommand('prev') },
+    { type: 'separator' },
+    { label: 'Mini player', click: () => openMini() },
+    { label: 'Show Spootify', click: showMain },
+    { type: 'separator' },
+    { label: 'Quit Spootify', click: () => { quitting = true; app.quit(); } }
+  ]));
+}
+function createTray() {
+  try {
+    const icon = nativeImage.createFromPath(path.join(__dirname, 'www', 'icon.png')).resize({ width: 24, height: 24 });
+    tray = new Tray(icon);
+    tray.on('click', () => { if (miniWin && !miniWin.isDestroyed() && miniWin.isVisible()) miniWin.close(); else openMini(); });
+    tray.on('double-click', showMain);
+    buildTrayMenu();
+  } catch (e) { console.warn('No tray icon', e); tray = null; }
+}
+ipcMain.on('tray:state', (event, s) => {
+  const next = { title: String((s && s.title) || ''), artist: String((s && s.artist) || ''), playing: !!(s && s.playing) };
+  if (next.title === trayState.title && next.artist === trayState.artist && next.playing === trayState.playing) return;
+  trayState = next; buildTrayMenu();
+});
+ipcMain.on('app:hide-to-tray', hideToTray);
+ipcMain.on('app:quit', () => { quitting = true; app.quit(); });
+
+if (!app.requestSingleInstanceLock()) app.quit();
+else {
+  app.on('second-instance', showMain);
+  app.whenReady().then(() => { createWindow(); createTray(); });
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

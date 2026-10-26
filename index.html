@@ -26,6 +26,7 @@
             <div class="sidebar-brand">
                 <svg viewBox="0 0 24 24" class="brand-icon"><circle cx="12" cy="12" r="10.5" fill="var(--accent)"/><circle cx="12" cy="12" r="7.4" fill="none" stroke="var(--on-accent-icon)" stroke-opacity="0.4" stroke-width="0.9"/><circle cx="12" cy="12" r="5.2" fill="none" stroke="var(--on-accent-icon)" stroke-opacity="0.3" stroke-width="0.8"/><path d="M10.3 8.9v6.2l4.9-3.1z" fill="var(--on-accent-icon)"/></svg>
                 <span>Spootify</span>
+                <button type="button" id="tray-hide-btn" class="brand-close" title="Close to tray (keeps playing) · Ctrl+W. Quit from the tray icon or Ctrl+Q" aria-label="Close to tray" hidden><svg viewBox="0 0 24 24"><path d="M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg></button>
             </div>
             <button id="home-btn" class="nav-btn active">
                 <svg viewBox="0 0 24 24"><path d="M3 10.8 12 3l9 7.8v9.7a.5.5 0 0 1-.5.5H15v-6H9v6H3.5a.5.5 0 0 1-.5-.5v-9.7Z"/></svg>
@@ -41,6 +42,7 @@
         </aside>
 
         <button id="toggle-sidebar-btn" class="sidebar-toggle-arrow" aria-label="Collapse sidebar"></button>
+        <button type="button" id="tray-hide-float" class="tray-hide-float" title="Close to tray (keeps playing) · Ctrl+W" aria-label="Close to tray" hidden><svg viewBox="0 0 24 24"><path d="M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg></button>
 
         <main class="main-content" id="main-content">
             <!-- HOME -->
