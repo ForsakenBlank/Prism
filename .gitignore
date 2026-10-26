@@ -14,3 +14,4 @@ dist/
 .claude/settings.local.json
 .DS_Store
 Thumbs.db
+.claude/launch.json

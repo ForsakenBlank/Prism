@@ -25,7 +25,7 @@ const SETTING_LABELS = {
     "spootify-appearance": "Appearance (theme, layout, effects)", "spootify-prefs": "General settings", "spootify-presets": "EQ presets",
     "spootify-speed": "Playback speed", "spootify-preserve-pitch": "Keep pitch when changing speed", "spootify-crossfade": "Crossfade length",
     "spootify-crossfade-overlap": "Crossfade overlap", "spootify-fx": "Sound effects", "spootify-leveller": "Volume leveller",
-    "spootify-volume": "Volume", "spootify-liked-sort": "Liked Songs sort order", "spootify-dj": "DJ settings", "spootify-recent-colors": "Recent colours"
+    "spootify-volume": "Volume", "spootify-liked-sort": "Liked Songs sort order", "spootify-dj": "DJ settings", "spootify-recent-colors": "Recent colours", "spootify-ui": "Layout and your own layouts"
 };
 const SYNC_CATS = [
     ["renames", "Renamed songs"], ["songs", "New songs"], ["covers", "Covers"], ["listen", "Listening time"], ["likes", "Likes"],

@@ -80,6 +80,8 @@ const ICONS = {
     star: '<svg viewBox="0 0 24 24"><path d="m12 2.5 2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6L2.5 9.4l6.6-.8L12 2.5Z"/></svg>',
     heart: `<svg viewBox="0 0 24 24"><path d="${HEART_PATH}" fill="none" stroke="currentColor" stroke-width="2.1" transform="translate(1.2 1.3) scale(0.9)"/></svg>`,
     heartFill: `<svg viewBox="0 0 24 24"><path d="${HEART_PATH}" fill="currentColor"/></svg>`,
+    // The Liked Songs cover: a heart with a little four-point sparkle.
+    likedTile: `<svg viewBox="0 0 24 24"><g transform="translate(1 3.4) scale(0.8)"><path d="${HEART_PATH}" fill="currentColor"/></g><path d="M19.2 1.6c.25 2.15 1.2 3.1 3.3 3.35-2.1.25-3.05 1.2-3.3 3.35-.25-2.15-1.2-3.1-3.3-3.35 2.1-.25 3.05-1.2 3.3-3.35Z" fill="currentColor" opacity="0.9"/></svg>`,
     queue: '<svg viewBox="0 0 24 24"><path d="M3 5h13v2H3V5Zm0 4.5h13v2H3v-2ZM3 14h8v2H3v-2Zm11 0 7 4-7 4v-8Z"/></svg>',
     close: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"/></svg>',
     handle: '<svg viewBox="0 0 24 24"><path d="M4 7h16v2H4V7Zm0 4h16v2H4v-2Zm0 4h16v2H4v-2Z"/></svg>',
@@ -730,11 +732,13 @@ const STAR = "&#9733;";
 function rowStarsHtml(song) { const r = ratingOf(song); return r ? ` <i class="row-stars" title="Rated ${r} of 5">${STAR.repeat(r)}</i>` : ""; }
 function ratingButtonsHtml(current) { return [1, 2, 3, 4, 5].map((i) => `<button type="button" data-rate="${i}" class="${i <= current ? "on" : ""}" aria-label="${i} star${i > 1 ? "s" : ""}">${STAR}</button>`).join(""); }
 function updateRatingButtons() {
-    const el = $("np-rating"); if (!el) return;
-    el.hidden = !currentTrack;
     const r = currentTrack ? ratingOf(currentTrack) : 0;
-    el.querySelectorAll("[data-rate]").forEach((b) => b.classList.toggle("on", Number(b.dataset.rate) <= r));
-    el.setAttribute("aria-label", r ? `Rated ${r} of 5` : "Not rated");
+    for (const el of [$("np-rating"), $("player-rating")]) {
+        if (!el) continue;
+        el.hidden = !currentTrack;
+        el.querySelectorAll("[data-rate]").forEach((b) => b.classList.toggle("on", Number(b.dataset.rate) <= r));
+        el.setAttribute("aria-label", r ? `Rated ${r} of 5` : "Not rated");
+    }
 }
 // ── RATING EFFECTS ── a little flourish for 5 stars and 1 star (Appearance → Star Ratings).
 // Short-lived spans in one fixed layer, animated with transform/opacity only, removed when done.
@@ -808,7 +812,7 @@ const RATE_FX = {
         const el = rateFxBit(x, y, "rfx-star rfx-sadstar", STAR);
         const k = [0, -10, 10, -8, 8, -5, 5, 0];
         rateFxRun(el, k.map((dx, i) => ({ transform: `translate(calc(-50% + ${dx}px), -50%) scale(1.5)`, opacity: i === k.length - 1 ? 0 : 1 })), 700, 0, "linear");
-        document.querySelectorAll("#np-rating, .now-playing-screen.open .np-rating").forEach((r) => r.animate([0, -6, 6, -4, 4, 0].map((dx) => ({ transform: `translateX(${dx}px)` })), { duration: 420 }));
+        document.querySelectorAll("#player-rating, #np-rating, .now-playing-screen.open .np-rating").forEach((r) => r.animate([0, -6, 6, -4, 4, 0].map((dx) => ({ transform: `translateX(${dx}px)` })), { duration: 420 }));
     },
     crumble(x, y) {
         for (let i = 0; i < 10; i++) {
@@ -2974,6 +2978,7 @@ if (queueToggleBtn) queueToggleBtn.addEventListener("click", () => setQueueHidde
 let homeScrollTop = 0;
 function showView(view) {
     const target = view === playlistView ? playlistView : homeDashboard;
+    setTimeout(updateTopNav, 0);
     if (target !== playlistView) endSelection();
     const other = target === playlistView ? homeDashboard : playlistView;
     const wasHidden = target && target.style.display === "none";
@@ -3418,7 +3423,7 @@ function autoCoverArts(pl) {
     return out;
 }
 function playlistCoverHtml(name) {
-    if (isLikedSource(name)) return `<div class="liked-cover">${ICONS.heartFill}</div>`;
+    if (isLikedSource(name)) return `<div class="liked-cover">${ICONS.likedTile}</div>`;
     const pl = playlists[name];
     if (pl && pl.art && pl.art !== DEFAULT_ART) return `<img src="${escapeHtml(pl.art)}" alt="" loading="lazy">`;
     const arts = autoCoverArts(pl);
@@ -3428,6 +3433,7 @@ function playlistCoverHtml(name) {
 function sidebarItem(key, label, count, pinned) {
     const li = document.createElement("li");
     li.className = "sidebar-playlist-item" + (pinned ? " pinned" : ""); li.dataset.name = key;
+    li.title = label; // the icon rail shows only the cover
     const star = pinned ? `<span class="pin-star" title="Pinned">${ICONS.star}</span>` : "";
     li.innerHTML = `<div class="sidebar-cover">${playlistCoverHtml(key)}</div><div class="sidebar-pl-info"><span class="sidebar-pl-name">${star}${escapeHtml(label)}</span><span class="sidebar-pl-count">${count} ${count === 1 ? "song" : "songs"}</span></div><span class="now-icon" title="Playing from here">${ICONS.speaker}</span>`;
     li.addEventListener("click", () => loadPlaylistPage(key));
@@ -4085,7 +4091,7 @@ if (clearQueueBtn) clearQueueBtn.addEventListener("click", clearQueue);
 
 // ── LIBRARY MANAGEMENT ──
 // Settings, themes and presets survive a reset; only the library and history go.
-const KEEP_ON_RESET = ["spootify-appearance", "spootify-custom-themes", "spootify-prefs", "spootify-presets", "spootify-speed", "spootify-preserve-pitch", "spootify-crossfade", "spootify-crossfade-overlap", "spootify-fx", "spootify-leveller", "spootify-volume", "spootify-liked-sort", "spootify-settings-tab", "spootify-sidebar-collapsed", "spootify-queue-hidden", "spootify-default-sort-v1", "spootify-recent-colors"];
+const KEEP_ON_RESET = ["spootify-appearance", "spootify-custom-themes", "spootify-prefs", "spootify-presets", "spootify-speed", "spootify-preserve-pitch", "spootify-crossfade", "spootify-crossfade-overlap", "spootify-fx", "spootify-leveller", "spootify-volume", "spootify-liked-sort", "spootify-settings-tab", "spootify-sidebar-collapsed", "spootify-queue-hidden", "spootify-default-sort-v1", "spootify-recent-colors", "spootify-ui"];
 function resetLibrary() {
     const finish = () => {
         try { for (const k of Object.keys(localStorage)) if (k.startsWith("spootify-") && !KEEP_ON_RESET.includes(k)) localStorage.removeItem(k); } catch {}
@@ -4160,8 +4166,8 @@ const RESETS = {
     ratings: { title: "Clear ratings", message: "Remove the star rating from every song?", confirm: "Clear ratings", run: () => {
         ratings = {}; saveRatings(); sortedCache.clear(); renderSongs(); scheduleShelves(); updateRatingButtons(); showToast("Ratings cleared");
     } },
-    appearance: { title: "Reset appearance", message: "Go back to the Prism theme and the default display and Home settings? Your own themes are kept.", confirm: "Reset appearance", run: () => {
-        appearance = { ...(Themes ? Themes.DEFAULT_SETTINGS : appearance) }; applyAppearance(); renderAppearanceUi(); showToast("Appearance reset");
+    appearance: { title: "Reset appearance", message: "Go back to the Prism theme, the Classic layout and the default display and Home settings? Your own themes and layouts are kept.", confirm: "Reset appearance", run: () => {
+        appearance = { ...(Themes ? Themes.DEFAULT_SETTINGS : appearance) }; setUiBase("classic"); applyAppearance(); renderAppearanceUi(); showToast("Appearance reset");
     } },
     themes: { title: "Delete all my themes", message: "Delete every theme you made or pasted in, and their pictures? The built-in themes stay.", confirm: "Delete themes", run: () => {
         if (!Themes) return;
@@ -6082,7 +6088,8 @@ function syncPrefsUi() {
     setText($("stats-hint"), `A play is counted after ${s(listen)} of listening. Stats are saved on this device.`);
 }
 for (const [id, key] of Object.entries(PREF_TOGGLES)) { const el = $(id); if (el) el.addEventListener("change", () => setPref(key, el.checked)); }
-if ($("np-rating")) $("np-rating").addEventListener("click", (e) => {
+for (const el of [$("np-rating"), $("player-rating")]) if (el) el.addEventListener("click", (e) => {
+    e.stopPropagation();
     const b = e.target.closest("[data-rate]"); if (!b || !currentTrack) return;
     const n = Number(b.dataset.rate), next = ratingOf(currentTrack) === n ? 0 : n;
     setRating(currentTrack, next);
@@ -6189,7 +6196,7 @@ if (miniApi) {
 // to the tray, where the music keeps playing; the tray menu shows the song that's on.
 const trayApi = window.electronAPI && window.electronAPI.tray;
 if (trayApi) {
-    for (const id of ["tray-hide-btn", "tray-hide-float"]) { const b = $(id); if (b) { b.hidden = false; b.addEventListener("click", () => trayApi.hide()); } }
+    for (const id of ["tray-hide-btn", "tray-hide-float", "tray-hide-top"]) { const b = $(id); if (b) { b.hidden = false; b.addEventListener("click", () => trayApi.hide()); } }
     let trayTimer = null;
     const pushTray = () => {
         trayTimer = null;
@@ -6199,6 +6206,194 @@ if (trayApi) {
     for (const ev of ["play", "pause", "playing", "loadedmetadata", "ended", "emptied"]) onPlayer(ev, scheduleTray);
     scheduleTray();
 }
+
+// ── UI BASES ── (Settings → Appearance → Layout)
+// A layout ("base") is the shape of the app, separate from the theme's colours: where the
+// navigation sits, how the player looks, whether the queue is docked, how panels and
+// headings are drawn, how playlists show on Home, spacing and corner rounding. Classic and
+// Modern are built in; your own are saved by name. They're applied as data-ui-* attributes
+// on <html> and style.css does the rest. Where the window is too narrow for what a layout
+// asks for, it adapts: a sidebar becomes an icon rail, a docked queue slides over instead.
+const UI_KEY = "spootify-ui";
+const UI_KNOBS = [
+    ["nav", "Navigation", [["side", "Sidebar"], ["rail", "Icon rail"], ["top", "Top bar"]]],
+    ["player", "Player", [["bar", "Full-width bar"], ["float", "Floating"]]],
+    ["queue", "Queue", [["side", "Docked"], ["drawer", "Slide-over"]]],
+    ["panels", "Panels", [["flat", "Flat"], ["cards", "Boxed"], ["open", "Open"]]],
+    ["headings", "Headings", [["bold", "Bold"], ["mono", "Mono caps"]]],
+    ["library", "Playlists on Home", [["grid", "Grid"], ["list", "List"]]],
+    ["density", "Spacing", [["comfy", "Comfy"], ["compact", "Compact"]]]
+];
+const UI_BUILTIN = [
+    { id: "classic", name: "Classic", nav: "side", player: "bar", queue: "side", panels: "flat", headings: "bold", library: "grid", density: "comfy", radius: 10 },
+    { id: "modern", name: "Modern", nav: "top", player: "float", queue: "drawer", panels: "cards", headings: "mono", library: "grid", density: "compact", radius: 12 }
+];
+function sanitizeUiBase(b, id) {
+    const out = { id, name: String(b?.name || "").trim().slice(0, 28) || "My layout" };
+    for (const [k, , opts] of UI_KNOBS) out[k] = opts.some(([v]) => v === b?.[k]) ? b[k] : UI_BUILTIN[0][k];
+    out.radius = clamp(Math.round(Number(b?.radius ?? 10)) || 0, 0, 24);
+    return out;
+}
+let uiState = (() => {
+    try {
+        const s = JSON.parse(localStorage.getItem(UI_KEY) || "null");
+        const custom = Array.isArray(s?.custom) ? s.custom.filter((b) => b && /^ui-[\w-]{1,40}$/.test(b.id)).map((b) => sanitizeUiBase(b, b.id)) : [];
+        return { base: typeof s?.base === "string" ? s.base : "classic", custom };
+    } catch { return { base: "classic", custom: [] }; }
+})();
+function saveUiState() { try { localStorage.setItem(UI_KEY, JSON.stringify(uiState)); } catch {} }
+function allUiBases() { return UI_BUILTIN.concat(uiState.custom); }
+function findUiBase(id) { return allUiBases().find((b) => b.id === id) || UI_BUILTIN[0]; }
+let uiPreview = null; // the layout being edited, shown live while its editor is open
+function activeUiBase() { return uiPreview || findUiBase(uiState.base); }
+
+let queueAutoClosed = false; // the queue was open when the layout turned it into a slide-over
+let uiFirstFit = true;
+function fitLayout() {
+    const b = activeUiBase(), root = document.documentElement, w = window.innerWidth;
+    let nav = b.nav, queue = b.queue;
+    if (w > 768) {
+        if (nav === "side" && w < 1000) nav = "rail";
+        if (queue === "side" && w < 1180) queue = "drawer";
+    }
+    const was = root.dataset.uiQueue;
+    if (root.dataset.uiNav !== nav) root.dataset.uiNav = nav;
+    if (was !== queue) root.dataset.uiQueue = queue;
+    // A slide-over starts closed, so it never lands on top of what you're doing; going back
+    // to a docked queue brings it back if it was open before.
+    const hidden = document.body.classList.contains("queue-hidden");
+    if (queue === "drawer" && (was !== "drawer" || uiFirstFit) && !hidden) { queueAutoClosed = true; setQueueHidden(true); }
+    else if (queue === "side" && was === "drawer" && hidden && queueAutoClosed) { queueAutoClosed = false; setQueueHidden(false); }
+    uiFirstFit = false;
+    const top = $("top-nav"); if (top) top.hidden = nav !== "top";
+    if (nav !== "top") closeLibraryMenu();
+    updateTopNav();
+}
+function applyUiBase() {
+    const b = activeUiBase(), root = document.documentElement;
+    for (const [k] of UI_KNOBS) if (k !== "nav" && k !== "queue") root.dataset["ui" + k[0].toUpperCase() + k.slice(1)] = b[k];
+    root.style.setProperty("--ui-r", b.radius + "px");
+    fitLayout();
+    if (selection) setTimeout(placeSelectBar, 60);
+}
+window.addEventListener("resize", fitLayout);
+// The middle panel's own width (not the window's), so the grids and headers fit whatever
+// room the sidebar and queue leave: main[data-w] = xs / s / m / l / xl.
+if (mainContent && "ResizeObserver" in window) new ResizeObserver(([e]) => {
+    const w = e.contentRect.width, size = w < 420 ? "xs" : w < 620 ? "s" : w < 900 ? "m" : w < 1250 ? "l" : "xl";
+    if (mainContent.dataset.w !== size) mainContent.dataset.w = size;
+}).observe(mainContent);
+
+// ── Top bar (layouts with nav = top). "Library" drops the sidebar down as a menu.
+function closeLibraryMenu() {
+    if (sidebar) sidebar.classList.remove("nav-open");
+    const t = document.querySelector('#top-nav [data-top="library"]'); if (t) t.classList.remove("open");
+}
+function updateTopNav() {
+    const nav = $("top-nav"); if (!nav || nav.hidden) return;
+    const inPlaylist = playlistView && playlistView.style.display !== "none";
+    const tab = !inPlaylist ? "home" : isLikedSource(currentPlaylist) ? "liked" : "library";
+    nav.querySelectorAll(".top-tab").forEach((b) => b.classList.toggle("active", b.dataset.top === tab));
+}
+if ($("top-nav")) $("top-nav").addEventListener("click", (e) => {
+    const b = e.target.closest(".top-tab"); if (!b) return;
+    const t = b.dataset.top;
+    if (t === "library") { const open = !sidebar.classList.contains("nav-open"); sidebar.classList.toggle("nav-open", open); b.classList.toggle("open", open); return; }
+    closeLibraryMenu();
+    if (t === "home") showHome(); else if (t === "liked") loadPlaylistPage(LIKED_SOURCE); else if (t === "stats") openStats(); else if (t === "settings") openSettings();
+    updateTopNav();
+});
+document.addEventListener("click", (e) => { if (sidebar && sidebar.classList.contains("nav-open") && !e.target.closest('#sidebar, [data-top="library"]')) closeLibraryMenu(); });
+if (sidebar) sidebar.addEventListener("click", (e) => { if (document.documentElement.dataset.uiNav === "top" && e.target.closest(".sidebar-playlist-item, .nav-btn")) setTimeout(closeLibraryMenu, 0); });
+// A slide-over queue closes when you tap anywhere else.
+document.addEventListener("pointerdown", (e) => {
+    if (document.documentElement.dataset.uiQueue !== "drawer" || document.body.classList.contains("queue-hidden")) return;
+    if (!e.target.closest("#queue-panel, #queue-toggle-btn, .context-menu, .modal-overlay, .settings-overlay, .drag-ghost")) setQueueHidden(true);
+});
+
+// ── The Layout section and its editor
+// A tiny drawing of each layout: where the nav, main panel, queue and player go.
+function uiSchemHtml(b) {
+    return `<div class="ui-schem" data-nav="${b.nav}" data-player="${b.player}" data-queue="${b.queue}" data-panels="${b.panels}" data-library="${b.library}" style="--sr:${Math.round(b.radius / 3)}px"><i class="s-nav"></i><i class="s-main"><b></b><b></b><b></b><b></b><b></b><b></b></i><i class="s-queue"></i><i class="s-player"></i></div>`;
+}
+function renderUiBaseGrid() {
+    const grid = $("ui-base-grid"); if (!grid) return;
+    grid.innerHTML = allUiBases().map((b) => {
+        const mine = !UI_BUILTIN.includes(b);
+        return `<div class="ui-base-card${b.id === uiState.base ? " active" : ""}" data-id="${escapeHtml(b.id)}" role="button" tabindex="0" aria-label="${escapeHtml(b.name)} layout">${uiSchemHtml(b)}<div class="theme-name"><span>${escapeHtml(b.name)}</span><button type="button" class="theme-edit-btn" data-edit="${escapeHtml(b.id)}" title="${mine ? "Edit" : "Make your own version"}" aria-label="${mine ? "Edit" : "Customise"} ${escapeHtml(b.name)}">${ICONS.pencil}</button></div></div>`;
+    }).join("");
+}
+function setUiBase(id) { uiState.base = findUiBase(id).id; saveUiState(); applyUiBase(); renderUiBaseGrid(); }
+const uiEd = { overlay: $("ui-base-editor"), title: $("ui-base-editor-title"), name: $("ui-base-name"), knobs: $("ui-base-knobs"), del: $("ui-base-delete") };
+let uiEditing = null; // { id: the custom layout being edited (null = a new one), draft }
+function openUiBaseEditor(fromId, editId) {
+    if (!uiEd.overlay) return;
+    const src = findUiBase(editId || fromId || uiState.base);
+    uiEditing = { id: editId || null, draft: { ...src } };
+    setText(uiEd.title, editId ? "Edit layout" : "New layout");
+    uiEd.name.value = editId ? src.name : `My ${src.name.toLowerCase()}`;
+    uiEd.del.hidden = !editId;
+    renderUiKnobs();
+    uiPreview = uiEditing.draft; applyUiBase();
+    document.body.classList.add("ui-editing"); // the settings panel steps aside so the change shows on the app itself
+    uiEd.overlay.style.display = "flex";
+}
+function renderUiKnobs() {
+    const d = uiEditing.draft;
+    uiEd.knobs.innerHTML = `<div class="ui-base-preview">${uiSchemHtml(d)}</div>`
+        + UI_KNOBS.map(([k, label, opts]) => `<div class="settings-choice-row stacked"><span>${label}</span><div class="segmented" data-knob="${k}">${opts.map(([v, t]) => `<button type="button" data-value="${v}" class="${d[k] === v ? "active" : ""}">${t}</button>`).join("")}</div></div>`).join("")
+        + `<div class="settings-choice-row stacked"><span>Corner rounding · <em id="ui-radius-val">${d.radius}px</em></span><input type="range" class="settings-slider" id="ui-radius" min="0" max="24" step="1" value="${d.radius}" style="--p:${(d.radius / 24) * 100}%" aria-label="Corner rounding"></div>`;
+}
+function closeUiBaseEditor() {
+    if (!uiEd.overlay) return;
+    uiEd.overlay.style.display = "none";
+    document.body.classList.remove("ui-editing");
+    uiEditing = null; uiPreview = null; applyUiBase();
+}
+if (uiEd.knobs) {
+    uiEd.knobs.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-knob] button"); if (!b || !uiEditing) return;
+        uiEditing.draft[b.parentElement.dataset.knob] = b.dataset.value;
+        b.parentElement.querySelectorAll("button").forEach((x) => x.classList.toggle("active", x === b));
+        uiEd.knobs.querySelector(".ui-base-preview").innerHTML = uiSchemHtml(uiEditing.draft);
+        applyUiBase();
+    });
+    uiEd.knobs.addEventListener("input", (e) => {
+        if (e.target.id !== "ui-radius" || !uiEditing) return;
+        const v = Number(e.target.value); uiEditing.draft.radius = v;
+        e.target.style.setProperty("--p", (v / 24) * 100 + "%"); setText($("ui-radius-val"), v + "px");
+        applyUiBase();
+    });
+}
+if ($("ui-base-cancel")) $("ui-base-cancel").addEventListener("click", closeUiBaseEditor);
+if ($("ui-base-save")) $("ui-base-save").addEventListener("click", () => {
+    if (!uiEditing) return;
+    const name = uiEd.name.value.trim(); if (!name) { uiEd.name.focus(); return; }
+    const id = uiEditing.id || "ui-" + Date.now().toString(36);
+    const saved = sanitizeUiBase({ ...uiEditing.draft, name }, id), i = uiState.custom.findIndex((b) => b.id === id);
+    if (i >= 0) uiState.custom[i] = saved; else uiState.custom.push(saved);
+    uiState.base = id; saveUiState();
+    closeUiBaseEditor(); renderUiBaseGrid();
+    showToast(`Layout "${saved.name}" saved`);
+});
+if ($("ui-base-delete")) $("ui-base-delete").addEventListener("click", async () => {
+    if (!uiEditing || !uiEditing.id) return;
+    const b = findUiBase(uiEditing.id);
+    if (!await showPrompt({ title: "Delete this layout?", message: `"${b.name}" will be gone. The app goes back to Classic if you were using it.`, confirmText: "Delete", danger: true })) return;
+    uiState.custom = uiState.custom.filter((x) => x.id !== b.id);
+    if (uiState.base === b.id) uiState.base = "classic";
+    saveUiState(); closeUiBaseEditor(); renderUiBaseGrid();
+});
+if ($("ui-base-new")) $("ui-base-new").addEventListener("click", () => openUiBaseEditor(uiState.base));
+if ($("ui-base-grid")) {
+    $("ui-base-grid").addEventListener("click", (e) => {
+        const ed = e.target.closest("[data-edit]");
+        if (ed) { e.stopPropagation(); const b = findUiBase(ed.dataset.edit); if (UI_BUILTIN.includes(b)) openUiBaseEditor(b.id); else openUiBaseEditor(null, b.id); return; }
+        const card = e.target.closest(".ui-base-card"); if (card) setUiBase(card.dataset.id);
+    });
+    $("ui-base-grid").addEventListener("keydown", (e) => { const card = e.target.closest(".ui-base-card"); if (card && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setUiBase(card.dataset.id); } });
+}
+applyUiBase();
 
 // ── QUIET MODE ──
 // Home's moon button: the theme background, a back button and a small card with the
@@ -6428,6 +6623,7 @@ function setThemeBgCovered(covered) { const bg = $("theme-bg"); if (bg) bg.datas
 // Closes the topmost thing that's open. Returns false when nothing was.
 function closeTopOverlay(fromBack) {
     if (isQuietOpen()) { closeQuiet(); return true; }
+    if (isShown($("ui-base-editor"))) { closeUiBaseEditor(); return true; }
     if (colorState) { closeColorPicker(false); return true; }
     if (isShown(cropEls.overlay)) { closeCropper(); return true; }
     if (document.getElementById("active-context-menu")) { closeContextMenu(); return true; }
@@ -7817,7 +8013,7 @@ function renderThemeGrid() {
     grid.querySelectorAll(".ts-layer").forEach((el) => Themes.paintLayer(el, byId.get(el.closest(".theme-card").dataset.id), { static: true }));
 }
 function renderAppearanceUi() {
-    renderThemeGrid();
+    renderThemeGrid(); renderUiBaseGrid();
     const sw = $("accent-swatches");
     if (sw) {
         const auto = Themes ? Themes.buildVars(currentTheme(), {})["--accent-grad"] : "#1DB954";

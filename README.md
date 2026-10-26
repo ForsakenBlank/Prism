@@ -1,5 +1,10 @@
 # Prism
 
+> [!WARNING]
+> **This app is vibe coded.** It was built mostly by chatting with an AI coding assistant, not written
+> line by line by an experienced developer. It works, but expect rough edges and bugs.
+> **Keep backups of your music:** the Export button on Home saves your whole library to files.
+
 **Your own music, on every device.** Prism is a music player for the songs you already have.
 There are no accounts, subscriptions or ads. Add your music files, build playlists, and take your whole
 library from your PC to your phone over Wi-Fi.
