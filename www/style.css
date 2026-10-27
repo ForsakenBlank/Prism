@@ -2606,7 +2606,7 @@ body.selecting .float-actions { display: none; }
 /* ── Navigation: top bar (the sidebar becomes the Library menu) ── */
 .top-nav { display: none; }
 .top-brand { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 800; letter-spacing: 0.3em; text-transform: uppercase; color: var(--text-1); pointer-events: none; }
-.top-brand-icon { width: 22px; height: 22px; }
+.top-brand-icon { width: 26px; height: 26px; flex-shrink: 0; }
 .top-tabs { margin: 0 auto; display: flex; gap: 2px; padding: 4px; border-radius: 999px; background: var(--box-bg); border: 1px solid var(--line-2); box-shadow: 0 8px 24px rgba(var(--shadow-rgb), 0.35); }
 .top-tab { border: none; background: none; color: var(--text-3); font: inherit; font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: color 0.15s, background 0.15s; }
 .top-tab svg { width: 14px; height: 14px; transition: transform 0.15s; }
