@@ -460,8 +460,10 @@ ipcMain.handle('ytdlp:update', async () => {
 // ══════════════════════════════════════════════
 // ── APP UPDATES (desktop) ──
 // Settings → General → App updates. Checks the latest GitHub release; installing downloads
-// this platform's build, unpacks it next to the old one, and a small script copies it over
-// the app folder once this process has quit, then starts the new version.
+// this platform's build and unpacks it next to the app folder. On Linux the two folders are
+// swapped while Prism is still running (a running program keeps working from its moved
+// files) and Electron relaunches it. On Windows the files are locked while it runs, so a
+// small script copies them over once this process has quit, then starts the new version.
 const UPDATE_REPO = 'ForsakenBlank/Prism';
 const UPDATE_ASSETS = { linux: 'Prism-linux-x64.tar.gz', win32: 'Prism-windows-x64.zip' };
 let updateInfo = null; // the last check's result, so install uses the same release
@@ -493,11 +495,29 @@ function isNewerVersion(a, b) {
 }
 // The folder holding the Prism executable (dist/Prism-linux-x64 or the unzipped Windows folder).
 function appFolder() { return path.dirname(process.execPath); }
+// fs.accessSync(W_OK) only looks at the read-only flag on Windows, so actually try a write
+function canWrite(dir) {
+  const probe = path.join(dir, `.prism-write-test-${process.pid}`);
+  try { fs.writeFileSync(probe, ''); fs.unlinkSync(probe); return true; } catch { return false; }
+}
 function cantInstallReason() {
   if (!UPDATE_ASSETS[process.platform]) return 'Updates from Settings work on Windows and Linux.';
   if (!app.isPackaged) return 'Running from source: pull the latest code and rebuild instead.';
-  try { fs.accessSync(appFolder(), fs.constants.W_OK); } catch { return "Prism can't write to its own folder, so download the update from the release page."; }
+  if (!canWrite(appFolder())) return "Prism can't write to its own folder, so download the update from the release page.";
   return null;
+}
+// Linux swaps folders, which needs the folder around the app to be writable too (and on the
+// same drive as the download, so it's unpacked there rather than in /tmp)
+function canSwapFolders() { return process.platform === 'linux' && canWrite(path.dirname(appFolder())); }
+// the swap leaves the old version next to the new one, tidy it up on the next start
+function cleanOldUpdates() {
+  if (!app.isPackaged || process.platform !== 'linux') return;
+  const parent = path.dirname(appFolder());
+  try {
+    for (const f of fs.readdirSync(parent)) {
+      if (f.startsWith('.prism-old-') || f.startsWith('.prism-update-')) fs.rmSync(path.join(parent, f), { recursive: true, force: true });
+    }
+  } catch {}
 }
 
 ipcMain.handle('update:check', async () => {
@@ -520,7 +540,8 @@ ipcMain.handle('update:install', async (event) => {
   if (!updateInfo || !updateInfo.available || !updateInfo.assetUrl) throw new Error('Check for updates first');
   const reason = cantInstallReason(); if (reason) throw new Error(reason);
   const send = (stage, frac) => { if (win && !win.isDestroyed()) win.webContents.send('update:progress', { stage, percent: Math.round(frac * 100) }); };
-  const work = fs.mkdtempSync(path.join(app.getPath('temp'), 'spootify-update-'));
+  const swap = canSwapFolders();
+  const work = fs.mkdtempSync(swap ? path.join(path.dirname(appFolder()), '.prism-update-') : path.join(app.getPath('temp'), 'spootify-update-'));
   const archive = path.join(work, UPDATE_ASSETS[process.platform]);
   await fetchToFile(updateInfo.assetUrl, archive, (f) => send('download', f));
   send('unpack', 1);
@@ -532,12 +553,21 @@ ipcMain.handle('update:install', async (event) => {
   const entries = fs.readdirSync(unpacked);
   const src = entries.length === 1 && fs.statSync(path.join(unpacked, entries[0])).isDirectory() ? path.join(unpacked, entries[0]) : unpacked;
   const dest = appFolder(), exe = process.execPath;
+  if (swap) {
+    const old = path.join(path.dirname(dest), `.prism-old-${Date.now()}`);
+    fs.renameSync(dest, old);
+    try { fs.renameSync(src, dest); } catch (e) { fs.renameSync(old, dest); throw e; }
+    app.relaunch();
+    setTimeout(() => app.quit(), 300);
+    return true;
+  }
   if (process.platform === 'win32') {
     const script = path.join(work, 'update.cmd');
     fs.writeFileSync(script, [
       '@echo off',
       ':wait',
-      `tasklist /FI "PID eq ${process.pid}" | find "${process.pid}" >nul && (timeout /t 1 /nobreak >nul & goto wait)`,
+      // ping as the delay, timeout needs a console and a hidden window has none
+      `tasklist /FI "PID eq ${process.pid}" | find "${process.pid}" >nul && (ping -n 2 127.0.0.1 >nul & goto wait)`,
       `robocopy "${src}" "${dest}" /E /R:5 /W:1 /NFL /NDL /NJH /NJS /NP >nul`,
       `start "" "${exe}"`,
       `rmdir /s /q "${work}"`
@@ -547,7 +577,8 @@ ipcMain.handle('update:install', async (event) => {
     const script = path.join(work, 'update.sh');
     fs.writeFileSync(script, [
       '#!/bin/sh',
-      `while kill -0 ${process.pid} 2>/dev/null; do sleep 0.3; done`,
+      // a closed app its launcher never reaped is a zombie, which still answers kill -0
+      `while kill -0 ${process.pid} 2>/dev/null && ! grep -q '^[0-9]* ([^)]*) Z' /proc/${process.pid}/stat 2>/dev/null; do sleep 0.3; done`,
       'cp -a "$1"/. "$2"/',
       '"$3" >/dev/null 2>&1 &',
       'rm -rf "$4"'
@@ -613,7 +644,7 @@ ipcMain.on('app:quit', () => { quitting = true; app.quit(); });
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on('second-instance', showMain);
-  app.whenReady().then(() => { createWindow(); createTray(); });
+  app.whenReady().then(() => { createWindow(); createTray(); cleanOldUpdates(); });
 }
 
 app.on('window-all-closed', () => {
