@@ -1,15 +1,29 @@
 # Builds Prism for Linux, Windows and Android. Pushing a tag like v1.2.3 publishes all
 # three as a GitHub release (the desktop apps' "Check for updates" reads that release).
-# Running it by hand from the Actions tab just builds them, as downloadable artifacts.
+# Running it by hand from the Actions tab just builds them, as downloadable artifacts,
+# unless you give it a version, then it tags that commit and publishes the release too.
 name: Release
 
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Publish a release with this version, e.g. 1.3.0 (leave empty to just build)"
+        required: false
+        default: ""
+      replace_old:
+        description: "Delete every older release and its tag"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
+
+env:
+  # v1.2.3 from a pushed tag or the version typed in, empty for a plain build
+  TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || (inputs.version != '' && format('v{0}', inputs.version) || '') }}
 
 jobs:
   desktop:
@@ -33,9 +47,9 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Set the app version from the tag
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.TAG != ''
         shell: bash
-        run: npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#v}"
+        run: npm version --no-git-tag-version --allow-same-version "${TAG#v}"
       - run: npm run ${{ matrix.script }}
       - name: Pack (Linux)
         if: runner.os == 'Linux'
@@ -70,7 +84,7 @@ jobs:
         shell: bash
         run: |
           V="1.0.0"
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then V="${GITHUB_REF_NAME#v}"; fi
+          if [[ -n "$TAG" ]]; then V="${TAG#v}"; fi
           IFS=. read -r MA MI PA <<< "${V%%-*}"
           echo "SPOOTIFY_VERSION_NAME=$V" >> "$GITHUB_ENV"
           echo "SPOOTIFY_VERSION_CODE=$(( ${MA:-0} * 10000 + ${MI:-0} * 100 + ${PA:-0} ))" >> "$GITHUB_ENV"
@@ -103,7 +117,7 @@ jobs:
 
   release:
     needs: [desktop, android]
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.version != ''
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -112,5 +126,16 @@ jobs:
           merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.TAG }}
+          target_commitish: ${{ github.sha }}
           files: out/*
           generate_release_notes: true
+      - name: Delete the older releases
+        if: inputs.replace_old
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release list --limit 100 --json tagName -q '.[].tagName' | grep -vxF "$TAG" | while read -r t; do
+            gh release delete "$t" --cleanup-tag --yes
+          done
