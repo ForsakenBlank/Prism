@@ -535,8 +535,17 @@ ipcMain.handle('update:check', async () => {
   return updateInfo;
 });
 
-ipcMain.handle('update:install', async (event) => {
+// Settings -> General -> App updates lists every version; any of them (newer or older) installs the same way
+ipcMain.handle('update:info', () => ({ current: app.getVersion(), cantInstall: cantInstallReason() }));
+
+ipcMain.handle('update:install', async (event, version) => {
   const win = BrowserWindow.fromWebContents(event.sender);
+  if (version) {
+    const rel = await getJson(`https://api.github.com/repos/${UPDATE_REPO}/releases/tags/v${String(version).replace(/^v/i, '')}`);
+    const asset = (rel.assets || []).find((a) => a.name === UPDATE_ASSETS[process.platform]);
+    if (!asset) throw new Error(`Version ${version} has no ${UPDATE_ASSETS[process.platform] || 'build'} for this computer.`);
+    updateInfo = { ...(updateInfo || {}), available: true, latest: String(rel.tag_name).replace(/^v/i, ''), assetUrl: asset.browser_download_url };
+  }
   if (!updateInfo || !updateInfo.available || !updateInfo.assetUrl) throw new Error('Check for updates first');
   const reason = cantInstallReason(); if (reason) throw new Error(reason);
   const send = (stage, frac) => { if (win && !win.isDestroyed()) win.webContents.send('update:progress', { stage, percent: Math.round(frac * 100) }); };

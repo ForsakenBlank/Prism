@@ -4106,50 +4106,130 @@ function resetLibrary() {
 // build, quits, copies it over the app folder and starts it again. A quiet check runs at
 // most once a day on startup and only pops a toast when there's something new.
 const UPDATE_KEY = "spootify-update";
-const updater = window.electronAPI && window.electronAPI.updates;
-const updateEls = { group: $("update-group"), version: $("update-version"), check: $("update-check-btn"), install: $("update-install-btn"), status: $("update-status"), auto: $("update-auto") };
+// App updates (Settings → General): every published version with what changed and a button to update,
+// reinstall or go back. The desktop app swaps its own folder (main.js); the Android app downloads the APK
+// and opens Android's installer (AppUpdatePlugin), which can't install an older version over a newer one.
+const UPDATE_REPO = "ForsakenBlank/Prism";
+const updater = (() => {
+    const e = window.electronAPI && window.electronAPI.updates;
+    if (e && typeof e.info === "function") {
+        return {
+            asset: /win/i.test(navigator.platform) ? "Prism-windows-x64.zip" : "Prism-linux-x64.tar.gz",
+            canDowngrade: true,
+            restarts: true,
+            info: () => e.info(),
+            install: (rel) => e.install(rel.version),
+            onProgress: (cb) => e.onProgress((p) => cb(p.stage === "download" ? `Downloading… ${p.percent}%` : "Installing…")),
+        };
+    }
+    const cap = window.Capacitor;
+    if (cap && typeof cap.nativePromise === "function" && typeof cap.getPlatform === "function" && cap.getPlatform() === "android") {
+        return {
+            asset: "Prism-android.apk",
+            canDowngrade: false,
+            downgradeNote: "Android can't install an older version over a newer one. To go back: export your library (Home → Export), uninstall Prism, install the older APK from GitHub, then import it.",
+            restarts: false,
+            info: () => cap.nativePromise("AppUpdate", "info", {}).then((r) => ({ current: r.current || "", cantInstall: null })),
+            install: (rel) => cap.nativePromise("AppUpdate", "install", { url: rel.assets["Prism-android.apk"] || "", version: rel.version }),
+            onProgress: (cb) => {
+                const h = cap.addListener("AppUpdate", "updateProgress", (p) => cb(p && p.percent >= 0 ? `Downloading… ${p.percent}%` : "Downloading…"));
+                return () => { try { h.remove(); } catch {} };
+            },
+        };
+    }
+    return null;
+})();
+const updateEls = { group: $("update-group"), version: $("update-version"), check: $("update-check-btn"), install: $("update-install-btn"), status: $("update-status"), auto: $("update-auto"), list: $("update-list") };
 const updatePrefs = (() => { try { return { auto: true, lastCheck: 0, ...JSON.parse(localStorage.getItem(UPDATE_KEY) || "{}") }; } catch { return { auto: true, lastCheck: 0 }; } })();
 function saveUpdatePrefs() { try { localStorage.setItem(UPDATE_KEY, JSON.stringify(updatePrefs)); } catch {} }
-let updateBusy = false;
+let updateBusy = false, updateCurrent = "", updateReleases = [], updateCantInstall = null;
 const updateError = (e) => errorText(e).replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
-function showUpdateResult(info) {
-    setText(updateEls.version, `Prism ${info.current}`);
-    updateEls.install.hidden = !info.available || !!info.cantInstall;
-    if (!info.available) setText(updateEls.status, `You're up to date (latest is ${info.latest || info.current}).`);
-    else setText(updateEls.status, `Version ${info.latest} is available.${info.cantInstall ? " " + info.cantInstall : " Prism restarts to install it."}`);
+function cmpVersion(a, b) {
+    const x = String(a || "").replace(/^v/i, "").split(".").map((n) => parseInt(n, 10) || 0), y = String(b || "").replace(/^v/i, "").split(".").map((n) => parseInt(n, 10) || 0);
+    for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0);
+    return 0;
+}
+async function fetchReleases() {
+    const res = await fetch(`https://api.github.com/repos/${UPDATE_REPO}/releases?per_page=40`, { headers: { Accept: "application/vnd.github+json" } });
+    if (!res.ok) throw new Error(`GitHub answered ${res.status}`);
+    return (await res.json())
+        .filter((r) => !r.draft && /^v\d+(\.\d+)*$/.test(r.tag_name || ""))
+        .map((r) => ({ tag: r.tag_name, version: r.tag_name.replace(/^v/i, ""), date: String(r.published_at || "").slice(0, 10), notes: String(r.body || ""), page: r.html_url,
+            assets: Object.fromEntries((r.assets || []).map((a) => [a.name, a.browser_download_url])) }))
+        .sort((a, b) => cmpVersion(b.version, a.version));
+}
+function renderUpdateList() {
+    const list = updateEls.list; if (!list) return;
+    list.innerHTML = updateReleases.slice(0, 15).map((r, i) => {
+        const c = cmpVersion(r.version, updateCurrent), has = !!r.assets[updater.asset];
+        let action;
+        if (!has) action = `<span class="settings-hint">No ${escapeHtml(updater.asset)} in this version</span>`;
+        else if (updateCantInstall) action = `<a class="utility-btn" href="${escapeHtml(r.page)}" target="_blank" rel="noopener">Download page</a>`;
+        else if (c > 0) action = `<button type="button" class="utility-btn accent-outline" data-install="${escapeHtml(r.version)}">Update</button>`;
+        else if (c === 0) action = `<button type="button" class="utility-btn" data-install="${escapeHtml(r.version)}">Reinstall</button>`;
+        else if (updater.canDowngrade) action = `<button type="button" class="utility-btn" data-install="${escapeHtml(r.version)}">Downgrade</button>`;
+        else action = `<span class="settings-hint">${escapeHtml(updater.downgradeNote)}</span>`;
+        const badges = (i === 0 ? '<span class="update-badge">NEWEST</span>' : "") + (c === 0 ? '<span class="update-badge">INSTALLED</span>' : "");
+        return `<div class="update-release"><div class="update-release-head"><strong>${escapeHtml(r.tag)}</strong><span class="settings-hint">${escapeHtml(r.date)}</span>${badges}`
+            + `<button type="button" class="utility-btn update-notes-btn" data-notes="${i}">What changed</button></div>`
+            + `<div class="update-notes" hidden>${escapeHtml(r.notes.replace(/\*\*/g, "")) || "No notes."}</div><div class="update-release-action">${action}</div></div>`;
+    }).join("");
 }
 async function checkForUpdates(quiet = false) {
     if (!updater || updateBusy) return null;
     updateBusy = true;
     if (!quiet) { updateEls.check.disabled = true; setText(updateEls.status, "Checking…"); }
     try {
-        const info = await updater.check();
+        const info = await updater.info();
+        updateCurrent = info.current || ""; updateCantInstall = info.cantInstall || null;
+        setText(updateEls.version, `Prism ${updateCurrent}`);
+        updateReleases = await fetchReleases();
         updatePrefs.lastCheck = Date.now(); saveUpdatePrefs();
-        showUpdateResult(info);
-        if (quiet && info.available) showToast(`Prism ${info.latest} is available · Settings → General`, { duration: 6000 });
-        return info;
+        const newest = updateReleases[0];
+        const newer = newest && cmpVersion(newest.version, updateCurrent) > 0;
+        updateEls.install.hidden = !newer || !!updateCantInstall || !newest.assets[updater.asset];
+        setText(updateEls.status, !newest ? "No versions are published yet."
+            : newer ? `Version ${newest.version} is available.${updateCantInstall ? " " + updateCantInstall : updater.restarts ? " Prism restarts to install it." : " Android's installer opens to install it."}`
+            : `You're up to date (${updateCurrent}). Older versions are listed below if you want to go back.`);
+        renderUpdateList();
+        if (quiet && newer) showToast(`Prism ${newest.version} is available · Settings → General`, { duration: 6000 });
+        return newest;
     } catch (e) {
         if (!quiet) setText(updateEls.status, `Couldn't check: ${updateError(e)}`);
         return null;
     } finally { updateBusy = false; updateEls.check.disabled = false; }
 }
-async function installUpdate() {
+async function installUpdate(version) {
     if (!updater || updateBusy) return;
-    if (!await showPrompt({ title: "Update Prism?", message: "It downloads the new version, closes, and opens again updated. Your library, stats and settings stay as they are.", confirmText: "Update now" })) return;
+    const rel = version ? updateReleases.find((r) => r.version === version) : updateReleases[0];
+    if (!rel) return;
+    const back = cmpVersion(rel.version, updateCurrent) < 0;
+    const message = updater.restarts
+        ? `It downloads ${rel.version}, closes, and opens again. Your library, stats and settings stay as they are.${back ? " Settings added in newer versions are ignored by the older one." : ""}`
+        : `It downloads ${rel.version} and opens Android's installer: tap Install there. Your library, stats and settings stay as they are.`;
+    if (!await showPrompt({ title: back ? `Go back to Prism ${rel.version}?` : `Install Prism ${rel.version}?`, message, confirmText: back ? "Go back" : "Install" })) return;
     updateBusy = true;
     updateEls.check.disabled = updateEls.install.disabled = true;
     noteActivity("updating the app");
     statsTick(); saveListenStats(true); saveListenLog(true); saveClock(true);
-    const off = updater.onProgress((p) => setText(updateEls.status, p.stage === "download" ? `Downloading… ${p.percent}%` : "Installing…"));
-    try { await updater.install(); setText(updateEls.status, "Restarting…"); }
-    catch (e) { setText(updateEls.status, `Update failed: ${updateError(e)}`); updateBusy = false; updateEls.check.disabled = updateEls.install.disabled = false; noteActivity(null); }
+    const off = updater.onProgress((text) => setText(updateEls.status, text));
+    try {
+        await updater.install(rel);
+        setText(updateEls.status, updater.restarts ? "Restarting…" : "Android's installer is open: tap Install.");
+        if (!updater.restarts) { updateBusy = false; updateEls.check.disabled = updateEls.install.disabled = false; noteActivity(null); }
+    } catch (e) { setText(updateEls.status, `Update failed: ${updateError(e)}`); updateBusy = false; updateEls.check.disabled = updateEls.install.disabled = false; noteActivity(null); }
     finally { off(); }
 }
 if (updater && updateEls.group) {
     updateEls.group.hidden = false;
     updateEls.auto.checked = updatePrefs.auto !== false;
     updateEls.check.addEventListener("click", () => checkForUpdates(false));
-    updateEls.install.addEventListener("click", installUpdate);
+    updateEls.install.addEventListener("click", () => installUpdate(null));
+    if (updateEls.list) updateEls.list.addEventListener("click", (e) => {
+        const n = e.target.closest("[data-notes]");
+        if (n) { const box = n.closest(".update-release").querySelector(".update-notes"); box.hidden = !box.hidden; n.textContent = box.hidden ? "What changed" : "Hide"; return; }
+        const b = e.target.closest("[data-install]"); if (b) installUpdate(b.dataset.install);
+    });
     updateEls.auto.addEventListener("change", () => { updatePrefs.auto = updateEls.auto.checked; saveUpdatePrefs(); });
     if (updatePrefs.auto !== false && Date.now() - (updatePrefs.lastCheck || 0) > 20 * 3600000) setTimeout(() => checkForUpdates(true), 8000);
 }

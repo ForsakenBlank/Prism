@@ -16,6 +16,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(BackgroundAudioPlugin.class);
         registerPlugin(YtDlpPlugin.class);
         registerPlugin(AppIconPlugin.class);
+        registerPlugin(AppUpdatePlugin.class);
         super.onCreate(savedInstanceState);
         // The last theme's base colour behind the page from the very first frame, instead of
         // the WebView's white (the page sets it again once its theme is applied).
