@@ -8012,8 +8012,42 @@ function renderThemeGrid() {
     const byId = new Map(shown.map((t) => [String(t.id), t]));
     grid.querySelectorAll(".ts-layer").forEach((el) => Themes.paintLayer(el, byId.get(el.closest(".theme-card").dataset.id), { static: true }));
 }
+// App icon (Settings -> Appearance): the bars design in four colours. Drawn inline, so the picker shows
+// exactly the icon you get; picking one tells Electron (window, tray) or Android (launcher alias).
+const APP_ICONS = [
+    { id: "dark", name: "Dark", bg: "#111114", bars: ["#F5A3B3", "#F7C28F", "#9EE0BB", "#94C6F2", "#B8A6F2"], alpha: [1, 1, 1, 1, 1] },
+    { id: "light", name: "Light", bg: "#F6F5F2", bars: ["#E8899C", "#EDAA6E", "#7FC9A0", "#74AEE0", "#9C88E0"], alpha: [1, 1, 1, 1, 1] },
+    { id: "mono", name: "Mono", bg: "#26262A", bars: Array(5).fill("#FFFFFF"), alpha: [1, 0.82, 0.52, 0.42, 0.34] },
+    { id: "spectrum", name: "Spectrum", bg: "url(#appicon-spectrum)", bars: Array(5).fill("#FFFFFF"), alpha: [1, 0.9, 0.7, 0.6, 0.5] },
+];
+function appIconSvg(icon) {
+    const bars = [[260, 402, 220], [368, 322, 380], [476, 262, 500], [584, 352, 320], [692, 422, 180]];
+    const grad = icon.id === "spectrum" ? '<defs><linearGradient id="appicon-spectrum" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F0A6B8"/><stop offset="0.5" stop-color="#C9B4EC"/><stop offset="1" stop-color="#A9C8F0"/></linearGradient></defs>' : "";
+    return `<svg viewBox="0 0 1024 1024" aria-hidden="true">${grad}<rect width="1024" height="1024" rx="230" fill="${icon.bg}"/>`
+        + bars.map(([x, y, h], i) => `<rect x="${x}" y="${y}" width="72" height="${h}" rx="36" fill="${icon.bars[i]}" fill-opacity="${icon.alpha[i]}"/>`).join("") + "</svg>";
+}
+function applyAppIcon(id) {
+    if (!APP_ICONS.some((i) => i.id === id)) return;
+    if (window.electronAPI && typeof window.electronAPI.setAppIcon === "function") { try { window.electronAPI.setAppIcon(id); } catch {} }
+    const cap = window.Capacitor;
+    if (cap && typeof cap.nativePromise === "function" && typeof cap.getPlatform === "function" && cap.getPlatform() === "android") {
+        cap.nativePromise("AppIcon", "set", { name: id }).catch((e) => console.warn("AppIcon.set failed", e));
+    }
+}
+function renderAppIconGrid() {
+    const grid = $("app-icon-grid"); if (!grid) return;
+    const cur = appearance.appIcon || "dark";
+    grid.innerHTML = APP_ICONS.map((i) => `<button type="button" class="app-icon-choice${i.id === cur ? " active" : ""}" data-icon="${i.id}" aria-pressed="${i.id === cur}">${appIconSvg(i)}<span>${i.name}</span></button>`).join("");
+}
+if ($("app-icon-grid")) {
+    $("app-icon-grid").addEventListener("click", (e) => {
+        const b = e.target.closest("button[data-icon]"); if (!b) return;
+        applyAppIcon(b.dataset.icon);
+        setAppearance("appIcon", b.dataset.icon);
+    });
+}
 function renderAppearanceUi() {
-    renderThemeGrid(); renderUiBaseGrid();
+    renderThemeGrid(); renderUiBaseGrid(); renderAppIconGrid();
     const sw = $("accent-swatches");
     if (sw) {
         const auto = Themes ? Themes.buildVars(currentTheme(), {})["--accent-grad"] : "#1DB954";

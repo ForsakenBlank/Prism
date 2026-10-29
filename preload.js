@@ -39,6 +39,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   // The theme's base colour, used as the window background on the next launch.
   setBackground: (color) => ipcRenderer.send('app:set-background', String(color || '')),
+  // Settings -> Appearance -> App icon: the window, mini player and tray icon colours.
+  setAppIcon: (name) => ipcRenderer.send('app:set-icon', String(name || '')),
   // Mini player window (see main.js): the main window pushes state, the mini window sends commands.
   mini: {
     toggle: () => ipcRenderer.send('mini:toggle'),

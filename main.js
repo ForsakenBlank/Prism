@@ -19,6 +19,13 @@ function isOnScreen(b) {
   return screen.getAllDisplays().some(({ workArea: a }) => b.x + 80 < a.x + a.width && b.x + b.width - 80 > a.x && b.y >= a.y - 10 && b.y + 40 < a.y + a.height);
 }
 
+// Settings -> Appearance -> App icon: the colours of the window, mini player and tray icon
+const APP_ICONS = ['dark', 'light', 'mono', 'spectrum'];
+function appIconPath() {
+  const name = readWindowState().appIcon;
+  return APP_ICONS.includes(name) ? path.join(__dirname, 'icons', `prism-${name}.png`) : path.join(__dirname, 'www', 'icon.png');
+}
+
 function createWindow() {
   const saved = readWindowState();
   const bounds = saved.bounds && isOnScreen(saved.bounds) ? saved.bounds : { width: 1200, height: 800 };
@@ -26,7 +33,7 @@ function createWindow() {
     ...bounds,
     minWidth: 360,
     minHeight: 480,
-    icon: path.join(__dirname, 'www', 'icon.png'),
+    icon: appIconPath(),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -85,7 +92,7 @@ function openMini() {
   const bounds = saved && isOnScreen({ ...saved, ...size }) ? { x: saved.x, y: saved.y, ...size } : size;
   miniWin = new BrowserWindow({
     ...bounds, frame: false, resizable: false, maximizable: false, fullscreenable: false, alwaysOnTop: true,
-    title: 'Prism mini player', icon: path.join(__dirname, 'www', 'icon.png'),
+    title: 'Prism mini player', icon: appIconPath(),
     backgroundColor: /^#[0-9a-f]{6}$/i.test(readWindowState().background || '') ? readWindowState().background : '#121212',
     webPreferences: { nodeIntegration: false, contextIsolation: true, preload: path.join(__dirname, 'preload.js') }
   });
@@ -114,6 +121,19 @@ ipcMain.on('app:set-background', (event, color) => {
   if (readWindowState().background !== color) writeWindowState({ background: color });
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win && !win.isDestroyed()) win.setBackgroundColor(color);
+});
+
+ipcMain.on('app:set-icon', (_event, name) => {
+  if (!APP_ICONS.includes(name)) return;
+  writeWindowState({ appIcon: name });
+  const file = appIconPath();
+  for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.setIcon(file);
+  if (tray) tray.setImage(nativeImage.createFromPath(file).resize({ width: 24, height: 24 }));
+  // the launcher icon install-linux.sh put in place follows too
+  const installed = path.join(app.getPath('home'), '.local', 'share', 'icons', 'hicolor', '512x512', 'apps', 'spootify.png');
+  if (process.platform === 'linux' && fs.existsSync(installed)) {
+    try { fs.copyFileSync(file, installed); } catch (e) { console.warn('Could not update the launcher icon', e); }
+  }
 });
 
 ipcMain.handle('save-file', async (event, data, defaultName) => {
@@ -575,7 +595,7 @@ function buildTrayMenu() {
 }
 function createTray() {
   try {
-    const icon = nativeImage.createFromPath(path.join(__dirname, 'www', 'icon.png')).resize({ width: 24, height: 24 });
+    const icon = nativeImage.createFromPath(appIconPath()).resize({ width: 24, height: 24 });
     tray = new Tray(icon);
     tray.on('click', () => { if (miniWin && !miniWin.isDestroyed() && miniWin.isVisible()) miniWin.close(); else openMini(); });
     tray.on('double-click', showMain);

@@ -45,6 +45,8 @@ On Android, install the new APK over the old one.
 
 **Make it yours**
 - Built-in themes and a theme editor (colours, pictures, effects), with colours taken from the album art.
+- A new bars app icon in four colours (Dark, Light, Mono, Spectrum): Settings → Appearance → App icon changes the
+  icon on your home screen, taskbar and tray.
 
 **Between devices**
 - **Wi-Fi sync:** the PC hosts, and the phone connects with a 6-digit code. Only what changed since you last
