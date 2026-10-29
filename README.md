@@ -21,8 +21,9 @@ Get the latest version from the [Releases page](https://github.com/ForsakenBlank
 | Linux   | `Prism-linux-x64.tar.gz`   | Extract it and run `Prism` (or run `install-linux.sh` from a source checkout to add it to your app launcher). |
 | Android | `Prism-android.apk`        | Open the file on your phone and allow installing from that source. |
 
-On Windows and Linux, **Settings → General → App updates** installs new versions for you.
-On Android, install the new APK over the old one.
+**Settings → General → App updates** lists every version with what changed. On Windows and Linux it updates (or goes
+back to an older version) and restarts by itself. On Android it downloads the new APK and opens the installer; Android
+can't install an older version over a newer one, so going back there means uninstalling first.
 
 ## What it does
 

@@ -24,7 +24,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // App updates from GitHub releases (see main.js): check, then download and restart.
   updates: {
     check: () => ipcRenderer.invoke('update:check'),
-    install: () => ipcRenderer.invoke('update:install'),
+    info: () => ipcRenderer.invoke('update:info'),
+    // a version picks that release (newer or older); none installs the one the last check found
+    install: (version) => ipcRenderer.invoke('update:install', version ? String(version) : undefined),
     onProgress: (callback) => {
       const handler = (_event, data) => callback(data);
       ipcRenderer.on('update:progress', handler);
