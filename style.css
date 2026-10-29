@@ -1340,6 +1340,12 @@ html[data-mode="light"][data-viz-extreme="1"] .bar-visualizer { opacity: 0.22; }
 .theme-edit-btn:hover { color: var(--text-1); background: rgba(var(--fg-rgb), 0.1); }
 .theme-edit-btn svg { width: 14px; height: 14px; fill: currentColor; }
 .accent-swatches { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; }
+.app-icon-grid { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; }
+.app-icon-choice { display: flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: none; padding: 4px; cursor: pointer; color: var(--text-2); font-size: 12px; border-radius: 16px; transition: transform 0.12s; }
+.app-icon-choice svg { width: 56px; height: 56px; border-radius: 13px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); }
+.app-icon-choice:hover { transform: translateY(-2px); }
+.app-icon-choice.active svg { box-shadow: 0 0 0 2px var(--modal-bg), 0 0 0 4px var(--text-1); }
+.app-icon-choice.active span { color: var(--text-1); font-weight: 600; }
 .accent-swatch { position: relative; width: 30px; height: 30px; border-radius: 50%; border: none; cursor: pointer; padding: 0; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18); transition: transform 0.12s; overflow: hidden; }
 .accent-swatch:hover { transform: scale(1.1); }
 .accent-swatch.active { box-shadow: 0 0 0 2px var(--modal-bg), 0 0 0 4px var(--text-1); }

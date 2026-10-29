@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- prism bars, light colours -->
+<!-- the bars design on its 1024 canvas, scaled into the 72dp an icon shows (viewport 1536 = 108dp) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="1536"
+    android:viewportHeight="1536">
+    <group
+        android:translateX="256"
+        android:translateY="256">
+        <path
+            android:pathData="M296,402 a36,36 0 0,1 36,36 L332,586 a36,36 0 0,1 -72,0 L260,438 a36,36 0 0,1 36,-36 Z"
+            android:fillColor="#FFE8899C"
+            android:fillAlpha="1" />
+        <path
+            android:pathData="M404,322 a36,36 0 0,1 36,36 L440,666 a36,36 0 0,1 -72,0 L368,358 a36,36 0 0,1 36,-36 Z"
+            android:fillColor="#FFEDAA6E"
+            android:fillAlpha="1" />
+        <path
+            android:pathData="M512,262 a36,36 0 0,1 36,36 L548,726 a36,36 0 0,1 -72,0 L476,298 a36,36 0 0,1 36,-36 Z"
+            android:fillColor="#FF7FC9A0"
+            android:fillAlpha="1" />
+        <path
+            android:pathData="M620,352 a36,36 0 0,1 36,36 L656,636 a36,36 0 0,1 -72,0 L584,388 a36,36 0 0,1 36,-36 Z"
+            android:fillColor="#FF74AEE0"
+            android:fillAlpha="1" />
+        <path
+            android:pathData="M728,422 a36,36 0 0,1 36,36 L764,566 a36,36 0 0,1 -72,0 L692,458 a36,36 0 0,1 36,-36 Z"
+            android:fillColor="#FF9C88E0"
+            android:fillAlpha="1" />
+    </group>
+</vector>
