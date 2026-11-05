@@ -4106,50 +4106,130 @@ function resetLibrary() {
 // build, quits, copies it over the app folder and starts it again. A quiet check runs at
 // most once a day on startup and only pops a toast when there's something new.
 const UPDATE_KEY = "spootify-update";
-const updater = window.electronAPI && window.electronAPI.updates;
-const updateEls = { group: $("update-group"), version: $("update-version"), check: $("update-check-btn"), install: $("update-install-btn"), status: $("update-status"), auto: $("update-auto") };
+// App updates (Settings → General): every published version with what changed and a button to update,
+// reinstall or go back. The desktop app swaps its own folder (main.js); the Android app downloads the APK
+// and opens Android's installer (AppUpdatePlugin), which can't install an older version over a newer one.
+const UPDATE_REPO = "ForsakenBlank/Prism";
+const updater = (() => {
+    const e = window.electronAPI && window.electronAPI.updates;
+    if (e && typeof e.info === "function") {
+        return {
+            asset: /win/i.test(navigator.platform) ? "Prism-windows-x64.zip" : "Prism-linux-x64.tar.gz",
+            canDowngrade: true,
+            restarts: true,
+            info: () => e.info(),
+            install: (rel) => e.install(rel.version),
+            onProgress: (cb) => e.onProgress((p) => cb(p.stage === "download" ? `Downloading… ${p.percent}%` : "Installing…")),
+        };
+    }
+    const cap = window.Capacitor;
+    if (cap && typeof cap.nativePromise === "function" && typeof cap.getPlatform === "function" && cap.getPlatform() === "android") {
+        return {
+            asset: "Prism-android.apk",
+            canDowngrade: false,
+            downgradeNote: "Android can't install an older version over a newer one. To go back: export your library (Home → Export), uninstall Prism, install the older APK from GitHub, then import it.",
+            restarts: false,
+            info: () => cap.nativePromise("AppUpdate", "info", {}).then((r) => ({ current: r.current || "", cantInstall: null })),
+            install: (rel) => cap.nativePromise("AppUpdate", "install", { url: rel.assets["Prism-android.apk"] || "", version: rel.version }),
+            onProgress: (cb) => {
+                const h = cap.addListener("AppUpdate", "updateProgress", (p) => cb(p && p.percent >= 0 ? `Downloading… ${p.percent}%` : "Downloading…"));
+                return () => { try { h.remove(); } catch {} };
+            },
+        };
+    }
+    return null;
+})();
+const updateEls = { group: $("update-group"), version: $("update-version"), check: $("update-check-btn"), install: $("update-install-btn"), status: $("update-status"), auto: $("update-auto"), list: $("update-list") };
 const updatePrefs = (() => { try { return { auto: true, lastCheck: 0, ...JSON.parse(localStorage.getItem(UPDATE_KEY) || "{}") }; } catch { return { auto: true, lastCheck: 0 }; } })();
 function saveUpdatePrefs() { try { localStorage.setItem(UPDATE_KEY, JSON.stringify(updatePrefs)); } catch {} }
-let updateBusy = false;
+let updateBusy = false, updateCurrent = "", updateReleases = [], updateCantInstall = null;
 const updateError = (e) => errorText(e).replace(/^Error invoking remote method '[^']+': (Error: )?/, "");
-function showUpdateResult(info) {
-    setText(updateEls.version, `Prism ${info.current}`);
-    updateEls.install.hidden = !info.available || !!info.cantInstall;
-    if (!info.available) setText(updateEls.status, `You're up to date (latest is ${info.latest || info.current}).`);
-    else setText(updateEls.status, `Version ${info.latest} is available.${info.cantInstall ? " " + info.cantInstall : " Prism restarts to install it."}`);
+function cmpVersion(a, b) {
+    const x = String(a || "").replace(/^v/i, "").split(".").map((n) => parseInt(n, 10) || 0), y = String(b || "").replace(/^v/i, "").split(".").map((n) => parseInt(n, 10) || 0);
+    for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0);
+    return 0;
+}
+async function fetchReleases() {
+    const res = await fetch(`https://api.github.com/repos/${UPDATE_REPO}/releases?per_page=40`, { headers: { Accept: "application/vnd.github+json" } });
+    if (!res.ok) throw new Error(`GitHub answered ${res.status}`);
+    return (await res.json())
+        .filter((r) => !r.draft && /^v\d+(\.\d+)*$/.test(r.tag_name || ""))
+        .map((r) => ({ tag: r.tag_name, version: r.tag_name.replace(/^v/i, ""), date: String(r.published_at || "").slice(0, 10), notes: String(r.body || ""), page: r.html_url,
+            assets: Object.fromEntries((r.assets || []).map((a) => [a.name, a.browser_download_url])) }))
+        .sort((a, b) => cmpVersion(b.version, a.version));
+}
+function renderUpdateList() {
+    const list = updateEls.list; if (!list) return;
+    list.innerHTML = updateReleases.slice(0, 15).map((r, i) => {
+        const c = cmpVersion(r.version, updateCurrent), has = !!r.assets[updater.asset];
+        let action;
+        if (!has) action = `<span class="settings-hint">No ${escapeHtml(updater.asset)} in this version</span>`;
+        else if (updateCantInstall) action = `<a class="utility-btn" href="${escapeHtml(r.page)}" target="_blank" rel="noopener">Download page</a>`;
+        else if (c > 0) action = `<button type="button" class="utility-btn accent-outline" data-install="${escapeHtml(r.version)}">Update</button>`;
+        else if (c === 0) action = `<button type="button" class="utility-btn" data-install="${escapeHtml(r.version)}">Reinstall</button>`;
+        else if (updater.canDowngrade) action = `<button type="button" class="utility-btn" data-install="${escapeHtml(r.version)}">Downgrade</button>`;
+        else action = `<span class="settings-hint">${escapeHtml(updater.downgradeNote)}</span>`;
+        const badges = (i === 0 ? '<span class="update-badge">NEWEST</span>' : "") + (c === 0 ? '<span class="update-badge">INSTALLED</span>' : "");
+        return `<div class="update-release"><div class="update-release-head"><strong>${escapeHtml(r.tag)}</strong><span class="settings-hint">${escapeHtml(r.date)}</span>${badges}`
+            + `<button type="button" class="utility-btn update-notes-btn" data-notes="${i}">What changed</button></div>`
+            + `<div class="update-notes" hidden>${escapeHtml(r.notes.replace(/\*\*/g, "")) || "No notes."}</div><div class="update-release-action">${action}</div></div>`;
+    }).join("");
 }
 async function checkForUpdates(quiet = false) {
     if (!updater || updateBusy) return null;
     updateBusy = true;
     if (!quiet) { updateEls.check.disabled = true; setText(updateEls.status, "Checking…"); }
     try {
-        const info = await updater.check();
+        const info = await updater.info();
+        updateCurrent = info.current || ""; updateCantInstall = info.cantInstall || null;
+        setText(updateEls.version, `Prism ${updateCurrent}`);
+        updateReleases = await fetchReleases();
         updatePrefs.lastCheck = Date.now(); saveUpdatePrefs();
-        showUpdateResult(info);
-        if (quiet && info.available) showToast(`Prism ${info.latest} is available · Settings → General`, { duration: 6000 });
-        return info;
+        const newest = updateReleases[0];
+        const newer = newest && cmpVersion(newest.version, updateCurrent) > 0;
+        updateEls.install.hidden = !newer || !!updateCantInstall || !newest.assets[updater.asset];
+        setText(updateEls.status, !newest ? "No versions are published yet."
+            : newer ? `Version ${newest.version} is available.${updateCantInstall ? " " + updateCantInstall : updater.restarts ? " Prism restarts to install it." : " Android's installer opens to install it."}`
+            : `You're up to date (${updateCurrent}). Older versions are listed below if you want to go back.`);
+        renderUpdateList();
+        if (quiet && newer) showToast(`Prism ${newest.version} is available · Settings → General`, { duration: 6000 });
+        return newest;
     } catch (e) {
         if (!quiet) setText(updateEls.status, `Couldn't check: ${updateError(e)}`);
         return null;
     } finally { updateBusy = false; updateEls.check.disabled = false; }
 }
-async function installUpdate() {
+async function installUpdate(version) {
     if (!updater || updateBusy) return;
-    if (!await showPrompt({ title: "Update Prism?", message: "It downloads the new version, closes, and opens again updated. Your library, stats and settings stay as they are.", confirmText: "Update now" })) return;
+    const rel = version ? updateReleases.find((r) => r.version === version) : updateReleases[0];
+    if (!rel) return;
+    const back = cmpVersion(rel.version, updateCurrent) < 0;
+    const message = updater.restarts
+        ? `It downloads ${rel.version}, closes, and opens again. Your library, stats and settings stay as they are.${back ? " Settings added in newer versions are ignored by the older one." : ""}`
+        : `It downloads ${rel.version} and opens Android's installer: tap Install there. Your library, stats and settings stay as they are.`;
+    if (!await showPrompt({ title: back ? `Go back to Prism ${rel.version}?` : `Install Prism ${rel.version}?`, message, confirmText: back ? "Go back" : "Install" })) return;
     updateBusy = true;
     updateEls.check.disabled = updateEls.install.disabled = true;
     noteActivity("updating the app");
     statsTick(); saveListenStats(true); saveListenLog(true); saveClock(true);
-    const off = updater.onProgress((p) => setText(updateEls.status, p.stage === "download" ? `Downloading… ${p.percent}%` : "Installing…"));
-    try { await updater.install(); setText(updateEls.status, "Restarting…"); }
-    catch (e) { setText(updateEls.status, `Update failed: ${updateError(e)}`); updateBusy = false; updateEls.check.disabled = updateEls.install.disabled = false; noteActivity(null); }
+    const off = updater.onProgress((text) => setText(updateEls.status, text));
+    try {
+        await updater.install(rel);
+        setText(updateEls.status, updater.restarts ? "Restarting…" : "Android's installer is open: tap Install.");
+        if (!updater.restarts) { updateBusy = false; updateEls.check.disabled = updateEls.install.disabled = false; noteActivity(null); }
+    } catch (e) { setText(updateEls.status, `Update failed: ${updateError(e)}`); updateBusy = false; updateEls.check.disabled = updateEls.install.disabled = false; noteActivity(null); }
     finally { off(); }
 }
 if (updater && updateEls.group) {
     updateEls.group.hidden = false;
     updateEls.auto.checked = updatePrefs.auto !== false;
     updateEls.check.addEventListener("click", () => checkForUpdates(false));
-    updateEls.install.addEventListener("click", installUpdate);
+    updateEls.install.addEventListener("click", () => installUpdate(null));
+    if (updateEls.list) updateEls.list.addEventListener("click", (e) => {
+        const n = e.target.closest("[data-notes]");
+        if (n) { const box = n.closest(".update-release").querySelector(".update-notes"); box.hidden = !box.hidden; n.textContent = box.hidden ? "What changed" : "Hide"; return; }
+        const b = e.target.closest("[data-install]"); if (b) installUpdate(b.dataset.install);
+    });
     updateEls.auto.addEventListener("change", () => { updatePrefs.auto = updateEls.auto.checked; saveUpdatePrefs(); });
     if (updatePrefs.auto !== false && Date.now() - (updatePrefs.lastCheck || 0) > 20 * 3600000) setTimeout(() => checkForUpdates(true), 8000);
 }
@@ -7758,6 +7838,8 @@ if ($("artist-shuffle-btn")) $("artist-shuffle-btn").addEventListener("click", (
 // ── AUDIO ENGINE (volume leveller + effects) ──
 // Both <audio> elements feed one Web Audio graph:
 //   element → per-element gain (leveller) → bass / mid / treble → balance → dry + reverb → limiter → out
+// The visualizer is on by default, so this graph carries nearly all playback and has to stay light:
+// the reverb only joins while it is turned up (see syncReverb).
 // createMediaElementSource is irreversible, so the graph is only built once something
 // needs it (leveller on, or an effect moved off its default); after that a "default"
 // setting is simply transparent. Playback works exactly as before if it never builds.
@@ -7769,6 +7851,7 @@ let fxSettings = { ...FX_DEFAULTS };
 let levellerEnabled = false;
 let audioCtx = null, fxNodes = null;
 const elementGains = new Map(); // <audio> → GainNode
+const ANDROID_AUDIO_BUFFER_S = 0.15, REVERB_TAIL_MS = 3000;
 
 function fxIsDefault() { return Object.keys(FX_DEFAULTS).every((k) => fxSettings[k] === FX_DEFAULTS[k]); }
 function fxNeeded() { return levellerEnabled || !fxIsDefault() || vizEnabled(); }
@@ -7788,13 +7871,14 @@ function ensureAudioGraph() {
     if (!fxNeeded()) return false;
     const Ctx = window.AudioContext || window.webkitAudioContext; if (!Ctx) return false;
     try {
-        const ctx = new Ctx({ latencyHint: "playback" });
+        // "playback" is only about 20 ms of buffer, too little on a phone with the screen off, when the CPU
+        // slows down and the audio skips for a split second. This is a sound player, a longer one costs nothing.
+        const ctx = new Ctx({ latencyHint: nativeAudio.available ? ANDROID_AUDIO_BUFFER_S : "playback" });
         const bass = ctx.createBiquadFilter(); bass.type = "lowshelf"; bass.frequency.value = 150;
         const mid = ctx.createBiquadFilter(); mid.type = "peaking"; mid.frequency.value = 1000; mid.Q.value = 0.9;
         const treble = ctx.createBiquadFilter(); treble.type = "highshelf"; treble.frequency.value = 4000;
         const pan = typeof ctx.createStereoPanner === "function" ? ctx.createStereoPanner() : null;
         const dry = ctx.createGain(), wet = ctx.createGain(); wet.gain.value = 0;
-        const reverb = ctx.createConvolver(); reverb.buffer = makeReverbImpulse(ctx);
         const limiter = ctx.createDynamicsCompressor();
         limiter.threshold.value = -3; limiter.knee.value = 0; limiter.ratio.value = 20; limiter.attack.value = 0.002; limiter.release.value = 0.2;
         // The analyser passes audio through untouched; the visualizer reads from it.
@@ -7802,10 +7886,10 @@ function ensureAudioGraph() {
         const input = ctx.createGain();
         input.connect(bass); bass.connect(mid); mid.connect(treble);
         let tail = treble; if (pan) { treble.connect(pan); tail = pan; }
-        tail.connect(dry); tail.connect(reverb); reverb.connect(wet);
+        tail.connect(dry);
         dry.connect(limiter); wet.connect(limiter); limiter.connect(tap); tap.connect(ctx.destination);
         for (const el of [playerA, playerB]) { const src = ctx.createMediaElementSource(el); const g = ctx.createGain(); src.connect(g); g.connect(input); elementGains.set(el, g); }
-        audioCtx = ctx; fxNodes = { bass, mid, treble, pan, dry, wet, limiter }; analyser = tap;
+        audioCtx = ctx; fxNodes = { bass, mid, treble, pan, dry, wet, limiter, tail, reverb: null }; analyser = tap;
         applyFxSettings(); applyVizTuning();
         if (currentTrack) applyLevellerGain(audioPlayer, currentTrack, 0);
         if (crossfadePending) applyLevellerGain(standbyPlayer, crossfadePending.song, 0);
@@ -7814,12 +7898,27 @@ function ensureAudioGraph() {
     return true;
 }
 
+// A convolver works just as hard when nothing is listening to it (three times the CPU of the rest of the
+// graph, measured), so it is only in the graph while the reverb is up. Turning it off waits for the tail.
+let reverbLinked = false, reverbOffTimer = null;
+function syncReverb(on) {
+    if (reverbOffTimer) { clearTimeout(reverbOffTimer); reverbOffTimer = null; }
+    const n = fxNodes;
+    if (on) {
+        if (!n.reverb) { n.reverb = audioCtx.createConvolver(); n.reverb.buffer = makeReverbImpulse(audioCtx); n.reverb.connect(n.wet); }
+        if (!reverbLinked) { n.tail.connect(n.reverb); reverbLinked = true; }
+    } else if (reverbLinked) {
+        reverbOffTimer = setTimeout(() => { reverbOffTimer = null; n.tail.disconnect(n.reverb); reverbLinked = false; }, REVERB_TAIL_MS);
+    }
+}
+
 function applyFxSettings() {
     if (!fxNodes || !audioCtx) return;
     const t = audioCtx.currentTime, set = (param, v, tc = 0.02) => param.setTargetAtTime(v, t, tc);
     set(fxNodes.bass.gain, fxSettings.bass); set(fxNodes.mid.gain, fxSettings.mid); set(fxNodes.treble.gain, fxSettings.treble);
     if (fxNodes.pan) set(fxNodes.pan.pan, fxSettings.pan / 100);
     const w = fxSettings.reverb / 100;
+    syncReverb(w > 0);
     set(fxNodes.wet.gain, w * 0.9, 0.05); set(fxNodes.dry.gain, 1 - w * 0.35, 0.05);
 }
 function fxDisplayValue(key, v) {
@@ -8012,8 +8111,42 @@ function renderThemeGrid() {
     const byId = new Map(shown.map((t) => [String(t.id), t]));
     grid.querySelectorAll(".ts-layer").forEach((el) => Themes.paintLayer(el, byId.get(el.closest(".theme-card").dataset.id), { static: true }));
 }
+// App icon (Settings -> Appearance): the bars design in four colours. Drawn inline, so the picker shows
+// exactly the icon you get; picking one tells Electron (window, tray) or Android (launcher alias).
+const APP_ICONS = [
+    { id: "dark", name: "Dark", bg: "#111114", bars: ["#F5A3B3", "#F7C28F", "#9EE0BB", "#94C6F2", "#B8A6F2"], alpha: [1, 1, 1, 1, 1] },
+    { id: "light", name: "Light", bg: "#F6F5F2", bars: ["#E8899C", "#EDAA6E", "#7FC9A0", "#74AEE0", "#9C88E0"], alpha: [1, 1, 1, 1, 1] },
+    { id: "mono", name: "Mono", bg: "#26262A", bars: Array(5).fill("#FFFFFF"), alpha: [1, 0.82, 0.52, 0.42, 0.34] },
+    { id: "spectrum", name: "Spectrum", bg: "url(#appicon-spectrum)", bars: Array(5).fill("#FFFFFF"), alpha: [1, 0.9, 0.7, 0.6, 0.5] },
+];
+function appIconSvg(icon) {
+    const bars = [[260, 402, 220], [368, 322, 380], [476, 262, 500], [584, 352, 320], [692, 422, 180]];
+    const grad = icon.id === "spectrum" ? '<defs><linearGradient id="appicon-spectrum" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F0A6B8"/><stop offset="0.5" stop-color="#C9B4EC"/><stop offset="1" stop-color="#A9C8F0"/></linearGradient></defs>' : "";
+    return `<svg viewBox="0 0 1024 1024" aria-hidden="true">${grad}<rect width="1024" height="1024" rx="230" fill="${icon.bg}"/>`
+        + bars.map(([x, y, h], i) => `<rect x="${x}" y="${y}" width="72" height="${h}" rx="36" fill="${icon.bars[i]}" fill-opacity="${icon.alpha[i]}"/>`).join("") + "</svg>";
+}
+function applyAppIcon(id) {
+    if (!APP_ICONS.some((i) => i.id === id)) return;
+    if (window.electronAPI && typeof window.electronAPI.setAppIcon === "function") { try { window.electronAPI.setAppIcon(id); } catch {} }
+    const cap = window.Capacitor;
+    if (cap && typeof cap.nativePromise === "function" && typeof cap.getPlatform === "function" && cap.getPlatform() === "android") {
+        cap.nativePromise("AppIcon", "set", { name: id }).catch((e) => console.warn("AppIcon.set failed", e));
+    }
+}
+function renderAppIconGrid() {
+    const grid = $("app-icon-grid"); if (!grid) return;
+    const cur = appearance.appIcon || "dark";
+    grid.innerHTML = APP_ICONS.map((i) => `<button type="button" class="app-icon-choice${i.id === cur ? " active" : ""}" data-icon="${i.id}" aria-pressed="${i.id === cur}">${appIconSvg(i)}<span>${i.name}</span></button>`).join("");
+}
+if ($("app-icon-grid")) {
+    $("app-icon-grid").addEventListener("click", (e) => {
+        const b = e.target.closest("button[data-icon]"); if (!b) return;
+        applyAppIcon(b.dataset.icon);
+        setAppearance("appIcon", b.dataset.icon);
+    });
+}
 function renderAppearanceUi() {
-    renderThemeGrid(); renderUiBaseGrid();
+    renderThemeGrid(); renderUiBaseGrid(); renderAppIconGrid();
     const sw = $("accent-swatches");
     if (sw) {
         const auto = Themes ? Themes.buildVars(currentTheme(), {})["--accent-grad"] : "#1DB954";

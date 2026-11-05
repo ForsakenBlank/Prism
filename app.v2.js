@@ -7838,6 +7838,8 @@ if ($("artist-shuffle-btn")) $("artist-shuffle-btn").addEventListener("click", (
 // ── AUDIO ENGINE (volume leveller + effects) ──
 // Both <audio> elements feed one Web Audio graph:
 //   element → per-element gain (leveller) → bass / mid / treble → balance → dry + reverb → limiter → out
+// The visualizer is on by default, so this graph carries nearly all playback and has to stay light:
+// the reverb only joins while it is turned up (see syncReverb).
 // createMediaElementSource is irreversible, so the graph is only built once something
 // needs it (leveller on, or an effect moved off its default); after that a "default"
 // setting is simply transparent. Playback works exactly as before if it never builds.
@@ -7849,6 +7851,7 @@ let fxSettings = { ...FX_DEFAULTS };
 let levellerEnabled = false;
 let audioCtx = null, fxNodes = null;
 const elementGains = new Map(); // <audio> → GainNode
+const ANDROID_AUDIO_BUFFER_S = 0.15, REVERB_TAIL_MS = 3000;
 
 function fxIsDefault() { return Object.keys(FX_DEFAULTS).every((k) => fxSettings[k] === FX_DEFAULTS[k]); }
 function fxNeeded() { return levellerEnabled || !fxIsDefault() || vizEnabled(); }
@@ -7868,13 +7871,14 @@ function ensureAudioGraph() {
     if (!fxNeeded()) return false;
     const Ctx = window.AudioContext || window.webkitAudioContext; if (!Ctx) return false;
     try {
-        const ctx = new Ctx({ latencyHint: "playback" });
+        // "playback" is only about 20 ms of buffer, too little on a phone with the screen off, when the CPU
+        // slows down and the audio skips for a split second. This is a sound player, a longer one costs nothing.
+        const ctx = new Ctx({ latencyHint: nativeAudio.available ? ANDROID_AUDIO_BUFFER_S : "playback" });
         const bass = ctx.createBiquadFilter(); bass.type = "lowshelf"; bass.frequency.value = 150;
         const mid = ctx.createBiquadFilter(); mid.type = "peaking"; mid.frequency.value = 1000; mid.Q.value = 0.9;
         const treble = ctx.createBiquadFilter(); treble.type = "highshelf"; treble.frequency.value = 4000;
         const pan = typeof ctx.createStereoPanner === "function" ? ctx.createStereoPanner() : null;
         const dry = ctx.createGain(), wet = ctx.createGain(); wet.gain.value = 0;
-        const reverb = ctx.createConvolver(); reverb.buffer = makeReverbImpulse(ctx);
         const limiter = ctx.createDynamicsCompressor();
         limiter.threshold.value = -3; limiter.knee.value = 0; limiter.ratio.value = 20; limiter.attack.value = 0.002; limiter.release.value = 0.2;
         // The analyser passes audio through untouched; the visualizer reads from it.
@@ -7882,10 +7886,10 @@ function ensureAudioGraph() {
         const input = ctx.createGain();
         input.connect(bass); bass.connect(mid); mid.connect(treble);
         let tail = treble; if (pan) { treble.connect(pan); tail = pan; }
-        tail.connect(dry); tail.connect(reverb); reverb.connect(wet);
+        tail.connect(dry);
         dry.connect(limiter); wet.connect(limiter); limiter.connect(tap); tap.connect(ctx.destination);
         for (const el of [playerA, playerB]) { const src = ctx.createMediaElementSource(el); const g = ctx.createGain(); src.connect(g); g.connect(input); elementGains.set(el, g); }
-        audioCtx = ctx; fxNodes = { bass, mid, treble, pan, dry, wet, limiter }; analyser = tap;
+        audioCtx = ctx; fxNodes = { bass, mid, treble, pan, dry, wet, limiter, tail, reverb: null }; analyser = tap;
         applyFxSettings(); applyVizTuning();
         if (currentTrack) applyLevellerGain(audioPlayer, currentTrack, 0);
         if (crossfadePending) applyLevellerGain(standbyPlayer, crossfadePending.song, 0);
@@ -7894,12 +7898,27 @@ function ensureAudioGraph() {
     return true;
 }
 
+// A convolver works just as hard when nothing is listening to it (three times the CPU of the rest of the
+// graph, measured), so it is only in the graph while the reverb is up. Turning it off waits for the tail.
+let reverbLinked = false, reverbOffTimer = null;
+function syncReverb(on) {
+    if (reverbOffTimer) { clearTimeout(reverbOffTimer); reverbOffTimer = null; }
+    const n = fxNodes;
+    if (on) {
+        if (!n.reverb) { n.reverb = audioCtx.createConvolver(); n.reverb.buffer = makeReverbImpulse(audioCtx); n.reverb.connect(n.wet); }
+        if (!reverbLinked) { n.tail.connect(n.reverb); reverbLinked = true; }
+    } else if (reverbLinked) {
+        reverbOffTimer = setTimeout(() => { reverbOffTimer = null; n.tail.disconnect(n.reverb); reverbLinked = false; }, REVERB_TAIL_MS);
+    }
+}
+
 function applyFxSettings() {
     if (!fxNodes || !audioCtx) return;
     const t = audioCtx.currentTime, set = (param, v, tc = 0.02) => param.setTargetAtTime(v, t, tc);
     set(fxNodes.bass.gain, fxSettings.bass); set(fxNodes.mid.gain, fxSettings.mid); set(fxNodes.treble.gain, fxSettings.treble);
     if (fxNodes.pan) set(fxNodes.pan.pan, fxSettings.pan / 100);
     const w = fxSettings.reverb / 100;
+    syncReverb(w > 0);
     set(fxNodes.wet.gain, w * 0.9, 0.05); set(fxNodes.dry.gain, 1 - w * 0.35, 0.05);
 }
 function fxDisplayValue(key, v) {
